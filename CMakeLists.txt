@@ -1,21 +1,37 @@
 cmake_minimum_required(VERSION 3.19)
 project(Slonyara LANGUAGES CXX)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets LinguistTools)
+find_package(Qt6 6.9 REQUIRED COMPONENTS Core Widgets LinguistTools)
+
+file(GLOB_RECURSE SLONYARA_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.mm"
+)
+
+if(WIN32)
+    list(FILTER SLONYARA_SOURCES EXCLUDE REGEX "_(mac|linux)\\.(cpp|mm)$")
+elseif(APPLE)
+    enable_language(OBJCXX)
+    list(FILTER SLONYARA_SOURCES EXCLUDE REGEX "_(win|linux)\\.(cpp|mm)$")
+else()
+    list(FILTER SLONYARA_SOURCES EXCLUDE REGEX "_(win|mac)\\.(cpp|mm)$")
+endif()
+
+if(NOT APPLE)
+    list(FILTER SLONYARA_SOURCES EXCLUDE REGEX "\\.mm$")
+endif()
 
 qt_standard_project_setup()
 
 qt_add_executable(Slonyara
     WIN32 MACOSX_BUNDLE
-    main.cpp
-    mainwindow.cpp
-    mainwindow.h
-    .gitignore
+    ${SLONYARA_SOURCES}
 )
 
 qt_add_translations(
     TARGETS Slonyara
-    TS_FILES Slonyara_en_US.ts
+    TS_FILES resources/translations/Slonyara_en_US.ts
 )
 
 target_link_libraries(Slonyara
@@ -25,7 +41,12 @@ target_link_libraries(Slonyara
 )
 
 if(WIN32)
-    target_link_libraries(Slonyara PRIVATE dwmapi)
+    target_link_libraries(Slonyara PRIVATE dwmapi user32)
+elseif(APPLE)
+    find_library(APPKIT_FRAMEWORK AppKit REQUIRED)
+    find_library(QUARTZCORE_FRAMEWORK QuartzCore REQUIRED)
+    target_link_libraries(Slonyara PRIVATE ${APPKIT_FRAMEWORK} ${QUARTZCORE_FRAMEWORK})
+    set_target_properties(Slonyara PROPERTIES OBJCXX_STANDARD 17 OBJCXX_STANDARD_REQUIRED YES)
 endif()
 
 install(TARGETS Slonyara
