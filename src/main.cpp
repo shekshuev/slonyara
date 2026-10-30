@@ -9,7 +9,11 @@ int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
 
+#if defined(Q_OS_WIN)
+    QGuiApplication::styleHints()->unsetColorScheme();
+#else
     QGuiApplication::styleHints()->setColorScheme(Qt::ColorScheme::Dark);
+#endif
 
     QTranslator translator;
     const QStringList uiLanguages = QLocale::system().uiLanguages();

@@ -22,6 +22,9 @@ bool AppWindow::event(QEvent *event)
     case QEvent::Show:
     case QEvent::WinIdChange:
     case QEvent::ThemeChange:
+#if defined(Q_OS_WIN)
+    case QEvent::PaletteChange:
+#endif
         m_backdropAvailable = WindowEffects::refresh(this);
         update();
         break;
@@ -39,13 +42,15 @@ void AppWindow::paintEvent(QPaintEvent *event)
 {
     QMainWindow::paintEvent(event);
     int alpha = 255;
-    if (m_backdropAvailable && isActiveWindow()) {
 #if defined(Q_OS_MACOS)
+    if (m_backdropAvailable && isActiveWindow()) {
         alpha = 175;
-#elif defined(Q_OS_WIN)
-        alpha = 0;
-#endif
     }
+#elif defined(Q_OS_WIN)
+    if (m_backdropAvailable) {
+        alpha = 0;
+    }
+#endif
     QPainter painter(this);
     painter.setCompositionMode(QPainter::CompositionMode_Source);
     QColor background = palette().color(QPalette::Window);

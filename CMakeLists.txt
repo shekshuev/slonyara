@@ -41,7 +41,7 @@ target_link_libraries(Slonyara
 )
 
 if(WIN32)
-    target_link_libraries(Slonyara PRIVATE dwmapi user32)
+    target_link_libraries(Slonyara PRIVATE dwmapi user32 uxtheme)
 elseif(APPLE)
     find_library(APPKIT_FRAMEWORK AppKit REQUIRED)
     find_library(QUARTZCORE_FRAMEWORK QuartzCore REQUIRED)
