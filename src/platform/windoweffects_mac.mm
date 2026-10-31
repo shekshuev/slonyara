@@ -13,9 +13,9 @@
 
 namespace {
 constexpr auto effectsObjectName = "slonyaraMacWindowEffects";
-constexpr int titleBarHeight = 38;
+constexpr int titleBarHeight = 34;
 constexpr int buttonAreaWidth = 78;
-constexpr int titleBarMargin = 12;
+constexpr int titleBarMargin = 4;
 
 class TitleBar final : public QWidget
 {

@@ -1,19 +1,30 @@
 #include "ui/windows/introwindow.h"
+#include "version.h"
 
 #include <QApplication>
+#include <QFile>
+#include <QFont>
+#include <QFontDatabase>
 #include <QLocale>
-#include <QTranslator>
 #include <QStyleHints>
+#include <QTranslator>
 
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
+    QCoreApplication::setApplicationVersion(QString::fromLatin1(Version::STRING));
 
-#if defined(Q_OS_WIN)
+    QFontDatabase::addApplicationFont(":/fonts/Manrope-Regular.ttf");
+    QFontDatabase::addApplicationFont(":/fonts/Manrope-Bold.ttf");
+    QFontDatabase::addApplicationFont(":/fonts/Xolonium-Bold.ttf");
+    QFontDatabase::addApplicationFont(":/fonts/JetBrainsMono-Regular.ttf");
+
+    QFile styleFile(":/styles/theme.qss");
+    if (styleFile.open(QFile::ReadOnly)) {
+        a.setStyleSheet(styleFile.readAll());
+    }
+
     QGuiApplication::styleHints()->unsetColorScheme();
-#else
-    QGuiApplication::styleHints()->setColorScheme(Qt::ColorScheme::Dark);
-#endif
 
     QTranslator translator;
     const QStringList uiLanguages = QLocale::system().uiLanguages();

@@ -9,6 +9,10 @@ class IntroWindow : public AppWindow
 public:
     explicit IntroWindow(QWidget *parent = nullptr);
 
+protected:
+    void paintEvent(QPaintEvent *event) override;
+
 private:
     void buildLayout() override;
+    QWidget *m_leftPanel = nullptr;
 };

@@ -1,0 +1,9 @@
+#pragma once
+
+namespace Version {
+    inline constexpr char STRING[] = "@PROJECT_VERSION@";
+
+    inline constexpr int MAJOR = @PROJECT_VERSION_MAJOR@;
+    inline constexpr int MINOR = @PROJECT_VERSION_MINOR@;
+    inline constexpr int PATCH = @PROJECT_VERSION_PATCH@;
+}

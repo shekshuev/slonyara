@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.19)
-project(Slonyara LANGUAGES CXX)
+project(Slonyara
+    VERSION 0.0.1
+    LANGUAGES CXX)
 
 find_package(Qt6 6.9 REQUIRED COMPONENTS Core Widgets LinguistTools)
 
@@ -7,6 +9,12 @@ file(GLOB_RECURSE SLONYARA_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.mm"
+)
+
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/version.h.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/src/generated/version.h"
+    @ONLY
 )
 
 if(WIN32)
@@ -29,9 +37,38 @@ qt_add_executable(Slonyara
     ${SLONYARA_SOURCES}
 )
 
+target_include_directories(Slonyara PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/src/generated")
+
 qt_add_translations(
     TARGETS Slonyara
-    TS_FILES resources/translations/Slonyara_en_US.ts
+    TS_FILES
+        resources/translations/Slonyara_en_US.ts
+        resources/translations/Slonyara_ru_RU.ts
+    RESOURCE_PREFIX "/i18n"
+)
+
+
+qt_add_resources(Slonyara "images"
+    PREFIX "/images"
+    BASE "resources/assets/images/"
+    FILES
+        resources/assets/images/logo.png
+)
+
+qt_add_resources(Slonyara "fonts"
+    PREFIX "/fonts"
+    BASE "resources/assets/fonts/"
+    FILES
+        resources/assets/fonts/Xolonium-Bold.ttf
+        resources/assets/fonts/JetBrainsMono-Regular.ttf
+        resources/assets/fonts/Manrope-Bold.ttf
+        resources/assets/fonts/Manrope-Regular.ttf
+)
+
+qt_add_resources(Slonyara "styles"
+    PREFIX "/styles"
+    BASE "resources/styles/"
+    FILES resources/styles/theme.qss
 )
 
 target_link_libraries(Slonyara
