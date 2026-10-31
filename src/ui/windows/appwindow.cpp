@@ -1,5 +1,5 @@
 #include "appwindow.h"
-#include "../platform/windoweffects_p.h"
+#include "../../platform/windoweffects_p.h"
 
 #include <QEvent>
 #include <QPainter>

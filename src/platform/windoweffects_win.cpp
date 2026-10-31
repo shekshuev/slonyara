@@ -1,5 +1,5 @@
+#include "../ui/windows/appwindow.h"
 #include "windoweffects_p.h"
-#include "../ui/appwindow.h"
 
 #include <QOperatingSystemVersion>
 #include <QSettings>

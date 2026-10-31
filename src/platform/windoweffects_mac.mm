@@ -148,6 +148,11 @@ public:
         nativeWindow.backgroundColor = NSColor.clearColor;
         nativeWindow.titlebarAppearsTransparent = YES;
         nativeWindow.titleVisibility = NSWindowTitleHidden;
+        const auto flags = m_window->windowFlags();
+        [[nativeWindow standardWindowButton:NSWindowMiniaturizeButton]
+            setHidden:!flags.testFlag(Qt::WindowMinimizeButtonHint)];
+        [[nativeWindow standardWindowButton:NSWindowZoomButton]
+            setHidden:!flags.testFlag(Qt::WindowMaximizeButtonHint)];
         view.wantsLayer = YES;
         view.layer.opaque = NO;
         view.layer.backgroundColor = NSColor.clearColor.CGColor;

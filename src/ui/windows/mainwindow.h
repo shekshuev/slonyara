@@ -10,5 +10,5 @@ public:
     explicit MainWindow(QWidget *parent = nullptr);
 
 private:
-    void buildLayout();
+    void buildLayout() override;
 };

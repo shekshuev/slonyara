@@ -19,4 +19,6 @@ protected:
 private:
     bool m_backdropAvailable = false;
     bool m_effectsReady = false;
+
+    virtual void buildLayout() = 0;
 };
