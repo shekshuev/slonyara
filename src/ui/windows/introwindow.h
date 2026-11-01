@@ -1,6 +1,9 @@
 #pragma once
 
 #include "appwindow.h"
+#include "../../core/connections/connectionstore.h"
+
+class QStandardItemModel;
 
 class IntroWindow : public AppWindow
 {
@@ -14,5 +17,9 @@ protected:
 
 private:
     void buildLayout() override;
+    void createConnection();
+    void reloadConnections();
+    ConnectionStore m_connectionStore;
+    QStandardItemModel *m_connectionsModel = nullptr;
     QWidget *m_leftPanel = nullptr;
 };

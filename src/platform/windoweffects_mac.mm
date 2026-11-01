@@ -85,7 +85,7 @@ private:
 class MacWindowEffects final : public QObject
 {
 public:
-    explicit MacWindowEffects(QMainWindow *window) : QObject(window), m_window(window)
+    explicit MacWindowEffects(QWidget *window) : QObject(window), m_window(window)
     {
         setObjectName(QString::fromLatin1(effectsObjectName));
         m_effect = [[NSVisualEffectView alloc] initWithFrame:NSZeroRect];
@@ -187,7 +187,7 @@ private:
         [zoom setFrameOrigin:NSMakePoint(x + spacing, bottom)];
     }
 
-    QMainWindow *m_window;
+    QWidget *m_window;
     NSVisualEffectView *m_effect = nil;
     NSView *m_view = nil;
     NSMutableArray *m_observers = nil;
@@ -197,7 +197,7 @@ private:
 }
 
 namespace WindowEffects {
-void prepare(QMainWindow *window)
+void prepare(QWidget *window)
 {
     window->setAttribute(Qt::WA_TranslucentBackground);
     window->setAttribute(Qt::WA_ContentsMarginsRespectsSafeArea, false);
@@ -205,17 +205,18 @@ void prepare(QMainWindow *window)
                           | Qt::NoTitleBarBackgroundHint);
 }
 
-bool setup(QMainWindow *window)
+bool setup(QWidget *window)
 {
     if (QGuiApplication::platformName() != QStringLiteral("cocoa"))
         return false;
-    window->setMenuWidget(new TitleBar(window));
+    if (auto *mainWindow = qobject_cast<QMainWindow *>(window))
+        mainWindow->setMenuWidget(new TitleBar(mainWindow));
     auto *effects = new MacWindowEffects(window);
     window->winId();
     return effects->apply();
 }
 
-bool refresh(QMainWindow *window)
+bool refresh(QWidget *window)
 {
     auto *effects = static_cast<MacWindowEffects *>(window->findChild<QObject *>(
         QString::fromLatin1(effectsObjectName), Qt::FindDirectChildrenOnly));

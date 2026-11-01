@@ -3,6 +3,7 @@
 #include "../../utils/theme.h"
 
 #include <QCoreApplication>
+#include "../dialogs/connectiondialog.h"
 #include <QFile>
 #include <QFont>
 #include <QHBoxLayout>
@@ -20,6 +21,7 @@
 
 namespace {
 constexpr int SearchRole = Qt::UserRole + 2;
+constexpr int ConnectionIdRole = Qt::UserRole + 3;
 constexpr int WindowWidth = 640;
 constexpr int WindowHeight = 480;
 constexpr int WindowContentMargin = 4;
@@ -90,6 +92,7 @@ void IntroWindow::buildLayout()
 
     auto *createBtn = new QPushButton(this);
     createBtn->setText(tr("New Connection"));
+    connect(createBtn, &QPushButton::clicked, this, &IntroWindow::createConnection);
 
     auto *rightPanel = new QWidget(this);
     auto *rightPanelLayout = new QVBoxLayout(rightPanel);
@@ -103,39 +106,11 @@ void IntroWindow::buildLayout()
     searchInput->setPlaceholderText(tr("Search connections…"));
     searchInput->setAccessibleName(tr("Search connections…"));
 
-    auto *connectionsModel = new QStandardItemModel(rightPanel);
-    struct Connection {
-        const char *name;
-        const char *host;
-        const char *database;
-    };
-    const Connection connections[] = {
-        {"Local PostgreSQL", "localhost", "postgres"},
-        {"Development", "127.0.0.1", "slonyara_dev"},
-        {"Staging", "staging.db.example.com", "slonyara"},
-        {"Production", "db.example.com", "slonyara"},
-        {"Analytics", "10.0.1.10", "analytics"},
-        {"Reporting", "10.0.1.11", "reports"},
-        {"Warehouse", "warehouse.example.com", "warehouse"},
-        {"Customers", "10.0.2.10", "customers"},
-        {"Billing", "10.0.2.11", "billing"},
-        {"Inventory", "10.0.2.12", "inventory"},
-        {"Orders", "orders.db.example.com", "orders"},
-    };
-    for (const auto &connection : connections) {
-        const QString name = QString::fromLatin1(connection.name);
-        const QString address = QString::fromLatin1(connection.host) + ":"
-                                + QString::fromLatin1(connection.database);
-        auto *item = new QStandardItem(name);
-        item->setData(address, ConnectionDelegate::AddressRole);
-        item->setData(name + " " + address, SearchRole);
-        item->setToolTip(name + "\n" + address);
-        item->setEditable(false);
-        connectionsModel->appendRow(item);
-    }
+    m_connectionsModel = new QStandardItemModel(rightPanel);
+    reloadConnections();
 
     auto *filterModel = new QSortFilterProxyModel(rightPanel);
-    filterModel->setSourceModel(connectionsModel);
+    filterModel->setSourceModel(m_connectionsModel);
     filterModel->setFilterRole(SearchRole);
     filterModel->setFilterCaseSensitivity(Qt::CaseInsensitive);
 
@@ -165,4 +140,38 @@ void IntroWindow::buildLayout()
     layout->addWidget(rightPanel, 1);
 
     setCentralWidget(central);
+}
+
+void IntroWindow::reloadConnections()
+{
+    m_connectionsModel->clear();
+    for (const auto &connection : m_connectionStore.connections()) {
+        const QString address = QStringLiteral("%1:%2/%3")
+                                    .arg(connection.host).arg(connection.port)
+                                    .arg(connection.database);
+        auto *item = new QStandardItem(connection.name);
+        item->setData(connection.id, ConnectionIdRole);
+        item->setData(address, ConnectionDelegate::AddressRole);
+        item->setData(connection.name + " " + address + " " + connection.user, SearchRole);
+        item->setToolTip(connection.name + "\n" + address);
+        item->setEditable(false);
+        m_connectionsModel->appendRow(item);
+    }
+}
+
+void IntroWindow::createConnection()
+{
+    auto *dialog = new ConnectionDialog(this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    connect(dialog, &ConnectionDialog::connectionSubmitted, this,
+            [this, dialog](const ConnectionProfile &profile) {
+        m_connectionStore.addConnection(profile);
+        if (!m_connectionStore.save()) {
+            m_connectionStore.removeConnectionAt(m_connectionStore.connections().size() - 1);
+            return;
+        }
+        reloadConnections();
+        dialog->accept();
+    });
+    dialog->open();
 }

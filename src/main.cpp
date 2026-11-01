@@ -6,6 +6,8 @@
 #include <QFont>
 #include <QFontDatabase>
 #include <QLocale>
+#include <QSettings>
+#include <QStandardPaths>
 #include <QStyleHints>
 #include <QTranslator>
 
@@ -13,6 +15,10 @@ int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
     QCoreApplication::setApplicationVersion(QString::fromLatin1(Version::STRING));
+
+    QCoreApplication::setOrganizationName("Slonyara");
+    QCoreApplication::setOrganizationDomain("slonyara.app");
+    QCoreApplication::setApplicationName("Slonyara");
 
     QFontDatabase::addApplicationFont(":/fonts/Manrope-Regular.ttf");
     QFontDatabase::addApplicationFont(":/fonts/Manrope-Bold.ttf");
@@ -35,6 +41,13 @@ int main(int argc, char *argv[])
             break;
         }
     }
+
+#if defined(Q_OS_WIN)
+    QString winConfigDir = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
+    QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, winConfigDir);
+    QSettings::setDefaultFormat(QSettings::IniFormat);
+#endif
+
     IntroWindow w;
     w.show();
     return QApplication::exec();

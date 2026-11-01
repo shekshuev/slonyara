@@ -34,18 +34,18 @@ bool transparencyAllowed()
 }
 
 namespace WindowEffects {
-void prepare(QMainWindow *window)
+void prepare(QWidget *window)
 {
     window->setAttribute(Qt::WA_TranslucentBackground);
 }
 
-bool setup(QMainWindow *window)
+bool setup(QWidget *window)
 {
     window->winId();
     return refresh(window);
 }
 
-bool refresh(QMainWindow *window)
+bool refresh(QWidget *window)
 {
     const auto handle = reinterpret_cast<HWND>(window->internalWinId());
     if (!handle)

@@ -1,9 +1,9 @@
 #pragma once
 
-class QMainWindow;
+class QWidget;
 
 namespace WindowEffects {
-void prepare(QMainWindow *window);
-bool setup(QMainWindow *window);
-bool refresh(QMainWindow *window);
+void prepare(QWidget *window);
+bool setup(QWidget *window);
+bool refresh(QWidget *window);
 }
