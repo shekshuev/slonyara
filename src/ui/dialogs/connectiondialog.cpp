@@ -15,17 +15,35 @@
 #include <QVBoxLayout>
 #if defined(Q_OS_WIN)
 #include <qt_windows.h>
+#include <dwmapi.h>
 #endif
 
 ConnectionDialog::ConnectionDialog(QWidget *parent) : QDialog(parent)
 {
     setWindowTitle(tr("New Connection"));
+#if defined(Q_OS_WIN)
+    setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::WindowSystemMenuHint
+                   | Qt::WindowCloseButtonHint | Qt::MSWindowsFixedSizeDialogHint);
+#else
     setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
+#endif
     setWindowModality(Qt::WindowModal);
     setFixedSize(parent->width() - 48, parent->height() - 48);
+#if defined(Q_OS_WIN)
+    const auto handle = reinterpret_cast<HWND>(winId());
+    const MARGINS margins{1, 1, 1, 1};
+    DwmExtendFrameIntoClientArea(handle, &margins);
+    const int roundedCorners = 2; // DWMWCP_ROUND
+    DwmSetWindowAttribute(handle, static_cast<DWMWINDOWATTRIBUTE>(33),
+                         &roundedCorners, sizeof(roundedCorners));
+    SetWindowPos(handle, nullptr, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+#endif
+#if !defined(Q_OS_WIN)
     WindowEffects::prepare(this);
     m_backdropAvailable = WindowEffects::setup(this);
     m_effectsReady = true;
+#endif
 
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(24, 20, 24, 20);
@@ -87,9 +105,14 @@ ConnectionDialog::ConnectionDialog(QWidget *parent) : QDialog(parent)
 
 void ConnectionDialog::anchorToParent()
 {
+#if defined(Q_OS_WIN)
+    const QSize dialogSize = frameGeometry().size();
+#else
+    const QSize dialogSize = size();
+#endif
     const QPoint target = parentWidget()->mapToGlobal(
-        QPoint((parentWidget()->width() - width()) / 2,
-               (parentWidget()->height() - height()) / 2));
+        QPoint((parentWidget()->width() - dialogSize.width()) / 2,
+               (parentWidget()->height() - dialogSize.height()) / 2));
     if (pos() != target)
         move(target);
 }
@@ -105,6 +128,8 @@ bool ConnectionDialog::eventFilter(QObject *watched, QEvent *event)
 bool ConnectionDialog::event(QEvent *event)
 {
     const bool handled = QDialog::event(event);
+    if (event->type() == QEvent::Show)
+        anchorToParent();
     if (!m_effectsReady)
         return handled;
     switch (event->type()) {
@@ -136,6 +161,7 @@ bool ConnectionDialog::event(QEvent *event)
 void ConnectionDialog::paintEvent(QPaintEvent *event)
 {
     QDialog::paintEvent(event);
+#if !defined(Q_OS_WIN)
     QColor background = palette().color(QPalette::Window);
 #if defined(Q_OS_MACOS)
     if (m_backdropAvailable && isActiveWindow())
@@ -147,13 +173,26 @@ void ConnectionDialog::paintEvent(QPaintEvent *event)
     QPainter painter(this);
     painter.setCompositionMode(QPainter::CompositionMode_Source);
     painter.fillRect(rect(), background);
+#endif
 }
 
 #if defined(Q_OS_WIN)
 bool ConnectionDialog::nativeEvent(const QByteArray &type, void *message, qintptr *result)
 {
-    const bool handled = QDialog::nativeEvent(type, message, result);
     const auto *msg = static_cast<MSG *>(message);
+    if (msg->message == WM_NCCALCSIZE && msg->wParam) {
+        *result = 0;
+        return true;
+    }
+    if (msg->message == WM_NCHITTEST) {
+        *result = HTCLIENT;
+        return true;
+    }
+    if (msg->message == WM_SYSCOMMAND && (msg->wParam & 0xFFF0) == SC_MOVE) {
+        *result = 0;
+        return true;
+    }
+    const bool handled = QDialog::nativeEvent(type, message, result);
     if (m_effectsReady && (msg->message == WM_SETTINGCHANGE
                           || msg->message == WM_THEMECHANGED
                           || msg->message == WM_DWMCOMPOSITIONCHANGED

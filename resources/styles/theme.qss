@@ -18,11 +18,6 @@ QLineEdit[controlRole="input"][platform="macos"] {
     padding: 5px 14px;
 }
 
-QLineEdit[controlRole="input"][platform="windows"] {
-    border-radius: 4px;
-    padding: 7px 12px;
-}
-
 QWidget[theme="dark"] QLineEdit[controlRole="input"] {
     color: #F5F5F7;
     placeholder-text-color: #A1A1AA;

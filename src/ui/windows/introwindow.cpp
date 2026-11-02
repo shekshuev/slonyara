@@ -16,6 +16,7 @@
 #include <QSortFilterProxyModel>
 #include <QSpacerItem>
 #include <QStandardItemModel>
+#include <QStackedWidget>
 #include <QVBoxLayout>
 #include <QWidget>
 
@@ -115,6 +116,11 @@ void IntroWindow::buildLayout()
     filterModel->setFilterCaseSensitivity(Qt::CaseInsensitive);
 
     auto *connectionsView = new QListView(rightPanel);
+#if defined(Q_OS_WIN)
+    connectionsView->setFrameShape(QFrame::NoFrame);
+    connectionsView->setAutoFillBackground(false);
+    connectionsView->viewport()->setAutoFillBackground(false);
+#endif
     connectionsView->setMouseTracking(true);
     connectionsView->setModel(filterModel);
     connectionsView->setItemDelegate(new ConnectionDelegate(connectionsView));
@@ -127,8 +133,37 @@ void IntroWindow::buildLayout()
     connect(searchInput, &QLineEdit::textChanged, filterModel,
             &QSortFilterProxyModel::setFilterFixedString);
 
+    auto *connectionsArea = new QStackedWidget(rightPanel);
+    connectionsArea->addWidget(connectionsView);
+
+    auto *emptyState = new QWidget(connectionsArea);
+    auto *emptyLayout = new QVBoxLayout(emptyState);
+    emptyLayout->setSpacing(12);
+
+    auto *emptyLabel = new QLabel(tr("No connections yet"), emptyState);
+    emptyLabel->setAlignment(Qt::AlignCenter);
+    emptyLabel->setWordWrap(true);
+    Theme::applyFor(emptyLabel, Theme::FontRole::Default, Theme::ColorRole::Muted);
+
+    emptyLayout->addStretch();
+    emptyLayout->addWidget(emptyLabel);
+    emptyLayout->addStretch();
+    connectionsArea->addWidget(emptyState);
+
+    const auto updateEmptyState = [this, connectionsArea, connectionsView, emptyState] {
+        connectionsArea->setCurrentWidget(m_connectionsModel->rowCount() == 0
+                                             ? emptyState : connectionsView);
+    };
+    connect(m_connectionsModel, &QAbstractItemModel::rowsInserted,
+            connectionsArea, updateEmptyState);
+    connect(m_connectionsModel, &QAbstractItemModel::rowsRemoved,
+            connectionsArea, updateEmptyState);
+    connect(m_connectionsModel, &QAbstractItemModel::modelReset,
+            connectionsArea, updateEmptyState);
+    updateEmptyState();
+
     rightPanelLayout->addWidget(searchInput);
-    rightPanelLayout->addWidget(connectionsView, 1);
+    rightPanelLayout->addWidget(connectionsArea, 1);
 
     leftPanelLayout->addWidget(imageLbl, 0, Qt::AlignHCenter);
     leftPanelLayout->addWidget(titleLbl, 0, Qt::AlignHCenter);

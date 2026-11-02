@@ -1,4 +1,5 @@
 #include "ui/windows/introwindow.h"
+#include "utils/theme.h"
 #include "version.h"
 
 #include <QApplication>
@@ -25,10 +26,16 @@ int main(int argc, char *argv[])
     QFontDatabase::addApplicationFont(":/fonts/Xolonium-Bold.ttf");
     QFontDatabase::addApplicationFont(":/fonts/JetBrainsMono-Regular.ttf");
 
+#if defined(Q_OS_WIN)
+    a.setStyle("windows11");
+#else
     QFile styleFile(":/styles/theme.qss");
     if (styleFile.open(QFile::ReadOnly)) {
         a.setStyleSheet(styleFile.readAll());
     }
+#endif
+
+    a.setFont(Theme::font());
 
     QGuiApplication::styleHints()->unsetColorScheme();
 

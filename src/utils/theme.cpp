@@ -7,6 +7,13 @@
 #include <QVariant>
 
 namespace {
+QFont pixelFont(const QString &family, int size, QFont::Weight weight = QFont::Normal)
+{
+    QFont font(family, -1, weight);
+    font.setPixelSize(size);
+    return font;
+}
+
 void refreshStyle(QWidget *widget)
 {
     widget->style()->unpolish(widget);
@@ -60,15 +67,15 @@ QFont font(FontRole role)
 {
     switch (role) {
     case FontRole::Title:
-        return QFont("Xolonium", 24, QFont::Bold);
+        return pixelFont("Xolonium", 24, QFont::Bold);
     case FontRole::Header:
-        return QFont("Manrope", 16, QFont::Bold);
+        return pixelFont("Manrope", 21, QFont::Bold);
     case FontRole::BodyBold:
-        return QFont("Manrope", 14, QFont::Bold);
+        return pixelFont("Manrope", 19, QFont::Bold);
     case FontRole::Caption:
-        return QFont("Manrope", 12);
+        return pixelFont("Manrope", 16);
     default:
-        return QFont("Manrope", 11);
+        return pixelFont("Manrope", 15);
     }
 }
 

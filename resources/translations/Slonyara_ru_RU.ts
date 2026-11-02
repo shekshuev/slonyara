@@ -57,6 +57,10 @@
 <context>
     <name>IntroWindow</name>
     <message>
+        <source>No connections yet</source>
+        <translation>Нет подключений</translation>
+    </message>
+    <message>
         <location filename="../../src/ui/windows/introwindow.cpp" line="85"/>
         <source>SLONYARA</source>
         <translation>SLONYARA</translation>
