@@ -1,18 +1,21 @@
 #include "connectiondialog.h"
-#include "../../platform/windoweffects_p.h"
-#include "../../utils/theme.h"
-
 #include <QDialogButtonBox>
 #include <QEvent>
 #include <QFormLayout>
+#include <QFutureWatcher>
+#include <QtConcurrent/QtConcurrentRun>
 #include <QGuiApplication>
 #include <QIntValidator>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMessageBox>
 #include <QPainter>
 #include <QPushButton>
 #include <QStyleHints>
 #include <QVBoxLayout>
+#include "../../core/connections/connectiontester.h"
+#include "../../platform/windoweffects_p.h"
+#include "../../utils/theme.h"
 #if defined(Q_OS_WIN)
 #include <qt_windows.h>
 #include <dwmapi.h>
@@ -81,7 +84,7 @@ ConnectionDialog::ConnectionDialog(QWidget *parent) : QDialog(parent)
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel, this);
     buttons->button(QDialogButtonBox::Save)->setText(tr("Save"));
     buttons->button(QDialogButtonBox::Cancel)->setText(tr("Cancel"));
-    buttons->addButton(tr("Test Connection"), QDialogButtonBox::ActionRole);
+    m_testButton = buttons->addButton(tr("Test Connection"), QDialogButtonBox::ActionRole);
     for (auto *button : buttons->buttons()) {
         auto *pushButton = qobject_cast<QPushButton *>(button);
         if (pushButton) {
@@ -91,6 +94,7 @@ ConnectionDialog::ConnectionDialog(QWidget *parent) : QDialog(parent)
     }
     connect(buttons, &QDialogButtonBox::accepted, this, &ConnectionDialog::submit);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    connect(m_testButton, &QPushButton::clicked, this, &ConnectionDialog::testConnection);
     layout->addWidget(buttons);
 
     auto *hints = QGuiApplication::styleHints();
@@ -221,10 +225,8 @@ bool ConnectionDialog::validate()
     return true;
 }
 
-void ConnectionDialog::submit()
+ConnectionProfile ConnectionDialog::toProfile()
 {
-    if (!validate())
-        return;
     const int port = m_port->text().toInt();
     ConnectionProfile profile;
     profile.name = m_name->text().trimmed();
@@ -232,5 +234,39 @@ void ConnectionDialog::submit()
     profile.port = static_cast<quint16>(port);
     profile.database = m_database->text().trimmed();
     profile.user = m_user->text().trimmed();
+    return profile;
+}
+
+void ConnectionDialog::submit()
+{
+    if (!validate())
+        return;
+    auto profile = toProfile();
     emit connectionSubmitted(profile);
+}
+
+void ConnectionDialog::testConnection()
+{
+    if (!m_testButton->isEnabled() || !validate())
+        return;
+
+    const auto profile = toProfile();
+    const auto connectionPassword = m_password->text();
+    m_testButton->setEnabled(false);
+    m_testButton->setText(tr("Testing…"));
+
+    auto *watcher = new QFutureWatcher<ConnectionTestResult>(this);
+    connect(watcher, &QFutureWatcher<ConnectionTestResult>::finished, this, [this, watcher] {
+        const auto result = watcher->result();
+        watcher->deleteLater();
+        m_testButton->setEnabled(true);
+        m_testButton->setText(tr("Test Connection"));
+        if (result.success)
+            QMessageBox::information(this, tr("Test Connection"), tr("Connection successful."));
+        else
+            QMessageBox::warning(this, tr("Test Connection"), result.error);
+    });
+    watcher->setFuture(QtConcurrent::run([profile, connectionPassword] {
+        return ConnectionTester::test(profile, connectionPassword);
+    }));
 }

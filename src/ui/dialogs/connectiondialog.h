@@ -4,6 +4,7 @@
 #include <QDialog>
 
 class QLineEdit;
+class QPushButton;
 
 class ConnectionDialog final : public QDialog
 {
@@ -26,12 +27,15 @@ private:
     void anchorToParent();
     void submit();
     bool validate();
+    ConnectionProfile toProfile();
+    void testConnection();
     QLineEdit *m_name;
     QLineEdit *m_host;
     QLineEdit *m_port;
     QLineEdit *m_database;
     QLineEdit *m_user;
     QLineEdit *m_password;
+    QPushButton *m_testButton = nullptr;
     bool m_effectsReady = false;
     bool m_backdropAvailable = false;
 };

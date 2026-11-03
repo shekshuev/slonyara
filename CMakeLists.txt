@@ -3,7 +3,7 @@ project(Slonyara
     VERSION 0.0.1
     LANGUAGES CXX)
 
-find_package(Qt6 6.9 REQUIRED COMPONENTS Core Widgets LinguistTools)
+find_package(Qt6 6.9 REQUIRED COMPONENTS Core Widgets LinguistTools Sql Concurrent)
 
 file(GLOB_RECURSE SLONYARA_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
@@ -75,6 +75,8 @@ target_link_libraries(Slonyara
     PRIVATE
         Qt::Core
         Qt::Widgets
+        Qt::Sql
+        Qt::Concurrent
 )
 
 if(WIN32)
