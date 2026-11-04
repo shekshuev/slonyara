@@ -9,6 +9,7 @@
 #include <QLocale>
 #include <QSettings>
 #include <QStandardPaths>
+#include <QStyleFactory>
 #include <QStyleHints>
 #include <QTranslator>
 
@@ -36,6 +37,9 @@ int main(int argc, char *argv[])
 #endif
 
     a.setFont(Theme::font());
+    QFont buttonFont = QFontDatabase::systemFont(QFontDatabase::GeneralFont);
+    buttonFont.setFamily("Xolonium");
+    a.setFont(buttonFont, "QPushButton");
 
     QGuiApplication::styleHints()->unsetColorScheme();
 
