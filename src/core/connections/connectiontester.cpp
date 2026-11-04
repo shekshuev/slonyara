@@ -1,27 +1,21 @@
 #include "connectiontester.h"
-#include <QtSql/QSqlDatabase>
-#include <QtSql/QSqlError>
+#include <pqxx/pqxx>
+#include <exception>
+// namespace
 
 ConnectionTestResult ConnectionTester::test(const ConnectionProfile &profile, const QString &password)
 {
-    const QString connectionName = QUuid::createUuid().toString(QUuid::WithoutBraces);
     ConnectionTestResult res;
-    {
-        QSqlDatabase db = QSqlDatabase::addDatabase("QPSQL", connectionName);
-        db.setDatabaseName(profile.database);
-        db.setHostName(profile.host);
-        db.setUserName(profile.user);
-        db.setPassword(password);
-        db.setPort(profile.port);
-        db.setConnectOptions(QStringLiteral("connect_timeout=5"));
+    std::string conn_opts = "host=" + profile.host.toStdString() + " port="
+                            + std::to_string(profile.port) + " user=" + profile.user.toStdString()
+                            + " password=" + password.toStdString()
+                            + " dbname=" + profile.database.toStdString();
 
-        if (db.open()) {
-            res.success = true;
-        } else {
-            res.error = db.lastError().text();
-        }
-        db.close();
+    try {
+        pqxx::connection connection{conn_opts};
+        res.success = connection.is_open();
+    } catch (const std::exception &error) {
+        res.error = QString::fromUtf8(error.what());
     }
-    QSqlDatabase::removeDatabase(connectionName);
     return res;
 }

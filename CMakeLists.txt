@@ -3,7 +3,19 @@ project(Slonyara
     VERSION 0.0.1
     LANGUAGES CXX)
 
-find_package(Qt6 6.9 REQUIRED COMPONENTS Core Widgets LinguistTools Sql Concurrent)
+find_package(Qt6 6.9 REQUIRED COMPONENTS Core Widgets LinguistTools Concurrent)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+set(SKIP_BUILD_TEST ON)
+if(WIN32)
+    set(BUILD_SHARED_LIBS ON)
+else()
+    set(BUILD_SHARED_LIBS OFF)
+endif()
+add_subdirectory(vendor/libpqxx build-pqxx)
 
 file(GLOB_RECURSE SLONYARA_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
@@ -75,7 +87,7 @@ target_link_libraries(Slonyara
     PRIVATE
         Qt::Core
         Qt::Widgets
-        Qt::Sql
+        pqxx
         Qt::Concurrent
 )
 
