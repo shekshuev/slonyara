@@ -119,6 +119,10 @@
 <context>
     <name>IntroWindow</name>
     <message>
+        <source>Connect</source>
+        <translation>Подключиться</translation>
+    </message>
+    <message>
         <location filename="../../src/ui/windows/introwindow.cpp" line="152"/>
         <source>No connections yet</source>
         <translation>Нет подключений</translation>
@@ -174,6 +178,25 @@
         <location filename="../../src/ui/dialogs/statusdetailsdialog.cpp" line="63"/>
         <source>Close</source>
         <translation>Закрыть</translation>
+    </message>
+</context>
+<context>
+    <name>MainWindow</name>
+    <message>
+        <source>%1 — Slonyara</source>
+        <translation>%1 — Slonyara</translation>
+    </message>
+    <message>
+        <source>&amp;File</source>
+        <translation>&amp;Файл</translation>
+    </message>
+    <message>
+        <source>Close Workspace</source>
+        <translation>Закрыть рабочее пространство</translation>
+    </message>
+    <message>
+        <source>Quit</source>
+        <translation>Выйти</translation>
     </message>
 </context>
 </TS>

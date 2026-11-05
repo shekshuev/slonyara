@@ -13,13 +13,18 @@ class IntroWindow : public AppWindow
 public:
     explicit IntroWindow(QWidget *parent = nullptr);
 
+signals:
+    void connectionRequested(const ConnectionProfile &profile);
+
 protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
     void paintEvent(QPaintEvent *event) override;
 
 private:
     void buildLayout() override;
     void createConnection();
     void editConnection();
+    void openSelectedConnection();
     void reloadConnections();
     ConnectionStore m_connectionStore;
     QStandardItemModel *m_connectionsModel = nullptr;

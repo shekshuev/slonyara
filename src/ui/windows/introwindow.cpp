@@ -11,6 +11,7 @@
 #include <QLineEdit>
 #include <QListView>
 #include <QItemSelectionModel>
+#include <QKeyEvent>
 #include <QPainter>
 #include <QPixmap>
 #include <QPushButton>
@@ -95,8 +96,11 @@ void IntroWindow::buildLayout()
     auto *createBtn = new QPushButton(this);
     createBtn->setText(tr("New Connection"));
     connect(createBtn, &QPushButton::clicked, this, &IntroWindow::createConnection);
+    auto *connectBtn = new QPushButton(tr("Connect"), this);
+    connectBtn->setEnabled(false);
+    connect(connectBtn, &QPushButton::clicked, this, &IntroWindow::openSelectedConnection);
     auto *editBtn = new QPushButton(tr("Edit"), this);
-    editBtn->hide();
+    editBtn->setEnabled(false);
     connect(editBtn, &QPushButton::clicked, this, &IntroWindow::editConnection);
 
     auto *rightPanel = new QWidget(this);
@@ -129,9 +133,14 @@ void IntroWindow::buildLayout()
     connectionsView->setMouseTracking(true);
     connectionsView->setModel(filterModel);
     connect(connectionsView->selectionModel(), &QItemSelectionModel::selectionChanged,
-            editBtn, [connectionsView, editBtn] {
-        editBtn->setVisible(connectionsView->selectionModel()->hasSelection());
+            editBtn, [connectionsView, editBtn, connectBtn] {
+        const bool hasSelection = connectionsView->selectionModel()->hasSelection();
+        editBtn->setEnabled(hasSelection);
+        connectBtn->setEnabled(hasSelection);
     });
+    connectionsView->installEventFilter(this);
+    connect(connectionsView, &QListView::doubleClicked,
+            this, &IntroWindow::openSelectedConnection);
     connectionsView->setItemDelegate(new ConnectionDelegate(connectionsView));
     connectionsView->setUniformItemSizes(true);
     connectionsView->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -178,13 +187,42 @@ void IntroWindow::buildLayout()
     leftPanelLayout->addWidget(titleLbl, 0, Qt::AlignHCenter);
     leftPanelLayout->addWidget(versionLbl, 0, Qt::AlignHCenter);
     leftPanelLayout->addStretch(1);
+    leftPanelLayout->addWidget(connectBtn);
     leftPanelLayout->addWidget(editBtn);
+    leftPanelLayout->addSpacing(12);
     leftPanelLayout->addWidget(createBtn);
 
     layout->addWidget(leftPanel);
     layout->addWidget(rightPanel, 1);
 
     setCentralWidget(central);
+}
+
+bool IntroWindow::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == m_connectionsView && event->type() == QEvent::KeyPress) {
+        auto *keyEvent = static_cast<QKeyEvent *>(event);
+        if (keyEvent->key() == Qt::Key_Return || keyEvent->key() == Qt::Key_Enter) {
+            if (!keyEvent->isAutoRepeat())
+                openSelectedConnection();
+            return true;
+        }
+    }
+    return AppWindow::eventFilter(watched, event);
+}
+
+void IntroWindow::openSelectedConnection()
+{
+    const auto selected = m_connectionsView->selectionModel()->selectedIndexes();
+    if (selected.isEmpty())
+        return;
+    const auto id = selected.first().data(ConnectionIdRole).toUuid();
+    for (const auto &profile : m_connectionStore.connections()) {
+        if (profile.id == id) {
+            emit connectionRequested(profile);
+            return;
+        }
+    }
 }
 
 void IntroWindow::reloadConnections()

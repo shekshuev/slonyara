@@ -1,4 +1,4 @@
-#include "ui/windows/introwindow.h"
+#include "applicationcontroller.h"
 #include "utils/theme.h"
 #include "version.h"
 
@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
     QSettings::setDefaultFormat(QSettings::IniFormat);
 #endif
 
-    IntroWindow w;
-    w.show();
+    ApplicationController controller;
+    controller.start();
     return QApplication::exec();
 }
