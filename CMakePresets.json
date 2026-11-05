@@ -1,0 +1,30 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 21, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "windows-mingw-debug",
+      "displayName": "Windows / MinGW / Debug",
+      "description": "Requires QT_ROOT, QT_TOOLS_ROOT, MINGW_ROOT, PostgreSQL_ROOT and Python3_EXECUTABLE in the environment.",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" },
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_CXX_COMPILER": "$env{MINGW_ROOT}/bin/g++.exe",
+        "CMAKE_MAKE_PROGRAM": "$env{QT_TOOLS_ROOT}/Ninja/ninja.exe",
+        "CMAKE_PREFIX_PATH": "$env{QT_ROOT}",
+        "PostgreSQL_ROOT": "$env{PostgreSQL_ROOT}",
+        "PostgreSQL_LIBRARY_RELEASE": "$env{PostgreSQL_ROOT}/lib/libpq.lib",
+        "PostgreSQL_LIBRARY_DEBUG": "$env{PostgreSQL_ROOT}/lib/libpq.lib",
+        "Python3_EXECUTABLE": "$env{Python3_EXECUTABLE}"
+      },
+      "environment": {
+        "PATH": "$env{MINGW_ROOT}/bin;$env{QT_ROOT}/bin;$env{PostgreSQL_ROOT}/bin;${sourceDir}/build/${presetName}/build-pqxx/src;$penv{PATH}"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "windows-mingw-debug", "configurePreset": "windows-mingw-debug" }
+  ]
+}
