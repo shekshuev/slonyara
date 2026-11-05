@@ -54,10 +54,12 @@ endif()
 
 qt_standard_project_setup()
 
-qt_add_executable(Slonyara
-    WIN32 MACOSX_BUNDLE
-    ${SLONYARA_SOURCES}
-)
+list(REMOVE_ITEM SLONYARA_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp")
+add_library(SlonyaraCore STATIC ${SLONYARA_SOURCES})
+target_include_directories(SlonyaraCore PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
+
+qt_add_executable(Slonyara WIN32 MACOSX_BUNDLE src/main.cpp)
+target_link_libraries(Slonyara PRIVATE SlonyaraCore)
 
 target_include_directories(Slonyara PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/src/generated")
 
@@ -93,8 +95,8 @@ qt_add_resources(Slonyara "styles"
     FILES resources/styles/theme.qss
 )
 
-target_link_libraries(Slonyara
-    PRIVATE
+target_link_libraries(SlonyaraCore
+    PUBLIC
         Qt::Core
         Qt::Widgets
         pqxx
@@ -103,12 +105,12 @@ target_link_libraries(Slonyara
 )
 
 if(WIN32)
-    target_link_libraries(Slonyara PRIVATE dwmapi user32 uxtheme)
+    target_link_libraries(SlonyaraCore PUBLIC dwmapi user32 uxtheme)
 elseif(APPLE)
     find_library(APPKIT_FRAMEWORK AppKit REQUIRED)
     find_library(QUARTZCORE_FRAMEWORK QuartzCore REQUIRED)
-    target_link_libraries(Slonyara PRIVATE ${APPKIT_FRAMEWORK} ${QUARTZCORE_FRAMEWORK})
-    set_target_properties(Slonyara PROPERTIES OBJCXX_STANDARD 17 OBJCXX_STANDARD_REQUIRED YES)
+    target_link_libraries(SlonyaraCore PUBLIC ${APPKIT_FRAMEWORK} ${QUARTZCORE_FRAMEWORK})
+    set_target_properties(SlonyaraCore PROPERTIES OBJCXX_STANDARD 17 OBJCXX_STANDARD_REQUIRED YES)
 endif()
 
 install(TARGETS Slonyara
@@ -123,3 +125,10 @@ qt_generate_deploy_app_script(
     NO_UNSUPPORTED_PLATFORM_ERROR
 )
 install(SCRIPT ${deploy_script})
+
+option(SLONYARA_BUILD_TESTS "Build Slonyara tests" OFF)
+if(SLONYARA_BUILD_TESTS)
+    enable_testing()
+    find_package(Qt6 REQUIRED COMPONENTS Test)
+    add_subdirectory(tests)
+endif()

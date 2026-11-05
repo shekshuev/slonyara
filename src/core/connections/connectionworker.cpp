@@ -1,35 +1,34 @@
-#include "connectionsession.h"
+#include "connectionworker.h"
+#include "connectionoptions.h"
 
 #include <QElapsedTimer>
 #include <QMutexLocker>
 #include <pqxx/pqxx>
 #include <stdexcept>
+#include <utility>
 
-ConnectionSession::ConnectionSession(ConnectionProfile profile, QString password)
+ConnectionWorker::ConnectionWorker(ConnectionProfile profile, QString password)
     : m_profile(std::move(profile)), m_password(std::move(password))
 {
 }
 
-ConnectionSession::~ConnectionSession()
+ConnectionWorker::~ConnectionWorker()
 {
     stop();
     wait();
 }
 
-void ConnectionSession::stop()
+void ConnectionWorker::stop()
 {
     QMutexLocker lock(&m_mutex);
     requestInterruption();
     m_stopped.wakeAll();
 }
 
-void ConnectionSession::run()
+void ConnectionWorker::run()
 {
     try {
-        auto options = "host=" + m_profile.host.toStdString() + " port="
-                       + std::to_string(m_profile.port) + " user=" + m_profile.user.toStdString()
-                       + " dbname=" + m_profile.database.toStdString() + " password="
-                       + m_password.toStdString() + " connect_timeout=10 application_name=Slonyara";
+        auto options = ConnectionOptions::build(m_profile, m_password);
         m_password.clear();
         QElapsedTimer timer;
         timer.start();
@@ -57,3 +56,4 @@ void ConnectionSession::run()
             emit failed(QString::fromUtf8(error.what()));
     }
 }
+

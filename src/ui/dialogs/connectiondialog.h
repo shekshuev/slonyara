@@ -2,6 +2,10 @@
 
 #include "../../core/connections/connectionprofile.h"
 #include <QDialog>
+#include <QFuture>
+#include <functional>
+#include "../../core/connections/connectionsecrets.h"
+#include "../../core/connections/connectiontester.h"
 
 class QLineEdit;
 class QPushButton;
@@ -13,7 +17,15 @@ class ConnectionDialog final : public QDialog
 {
     Q_OBJECT
 public:
+    struct Dependencies {
+        std::function<void(const QUuid &, QObject *, ConnectionSecrets::Callback)> readPassword;
+        std::function<void(const QUuid &, const QString &, QObject *, ConnectionSecrets::Callback)> writePassword;
+        std::function<void(const QUuid &, QObject *, ConnectionSecrets::Callback)> removePassword;
+        std::function<QFuture<ConnectionTestResult>(const ConnectionProfile &, const QString &)> testConnection;
+    };
+
     explicit ConnectionDialog(QWidget *parent, const ConnectionProfile *profile = nullptr);
+    ConnectionDialog(QWidget *parent, const ConnectionProfile *profile, Dependencies dependencies);
     void completeSave(bool success);
     void reject() override;
 
@@ -29,6 +41,7 @@ protected:
 #endif
 
 private:
+    Dependencies m_dependencies;
     void anchorToParent();
     void submit();
     bool validate();

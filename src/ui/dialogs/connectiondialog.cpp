@@ -15,6 +15,7 @@
 #include <QPushButton>
 #include <QStyleHints>
 #include <QVBoxLayout>
+#include <utility>
 #include "../../core/connections/connectiontester.h"
 #include "../../core/connections/connectionsecrets.h"
 #include "../../platform/windoweffects_p.h"
@@ -24,7 +25,17 @@
 #include <dwmapi.h>
 #endif
 
-ConnectionDialog::ConnectionDialog(QWidget *parent, const ConnectionProfile *profile) : QDialog(parent)
+ConnectionDialog::ConnectionDialog(QWidget *parent, const ConnectionProfile *profile)
+    : ConnectionDialog(parent, profile, Dependencies{
+          ConnectionSecrets::read, ConnectionSecrets::write, ConnectionSecrets::remove,
+          [](const ConnectionProfile &profile, const QString &password) {
+              return QtConcurrent::run([profile, password] { return ConnectionTester::test(profile, password); });
+          }})
+{
+}
+
+ConnectionDialog::ConnectionDialog(QWidget *parent, const ConnectionProfile *profile, Dependencies dependencies)
+    : QDialog(parent), m_dependencies(std::move(dependencies))
 {
     setWindowTitle(profile ? tr("Edit Connection") : tr("New Connection"));
 #if defined(Q_OS_WIN)
@@ -68,6 +79,10 @@ ConnectionDialog::ConnectionDialog(QWidget *parent, const ConnectionProfile *pro
     m_user = new QLineEdit(QStringLiteral("postgres"), this);
     m_password = new QLineEdit(this);
     m_name->setObjectName(QStringLiteral("connectionName"));
+    m_host->setObjectName(QStringLiteral("connectionHost"));
+    m_port->setObjectName(QStringLiteral("connectionPort"));
+    m_database->setObjectName(QStringLiteral("connectionDatabase"));
+    m_user->setObjectName(QStringLiteral("connectionUser"));
     m_password->setObjectName(QStringLiteral("connectionPassword"));
     m_password->setEchoMode(QLineEdit::Password);
     connect(m_password, &QLineEdit::textEdited, this, [this] { m_passwordEdited = true; });
@@ -298,16 +313,16 @@ void ConnectionDialog::submit()
         emit connectionSubmitted(profile);
     };
     if (profile.savePassword)
-        ConnectionSecrets::write(m_connectionId, m_password->text(), this, finished);
+        m_dependencies.writePassword(m_connectionId, m_password->text(), this, finished);
     else
-        ConnectionSecrets::remove(m_connectionId, this, finished);
+        m_dependencies.removePassword(m_connectionId, this, finished);
 }
 
 void ConnectionDialog::loadPassword()
 {
     setBusy(true);
     m_statusCard->setStatus(tr("Loading password…"), Theme::ColorRole::Info);
-    ConnectionSecrets::read(m_connectionId, this, [this](const ConnectionSecrets::Result &result) {
+    m_dependencies.readPassword(m_connectionId, this, [this](const ConnectionSecrets::Result &result) {
         setBusy(false);
         m_secretUnavailable = !result.success;
         m_secretReadFailed = !result.success;
@@ -364,9 +379,9 @@ void ConnectionDialog::completeSave(bool success)
         unchanged.success = true;
         finished(unchanged);
     } else if (m_hadPassword) {
-        ConnectionSecrets::write(m_connectionId, m_loadedPassword, this, finished);
+        m_dependencies.writePassword(m_connectionId, m_loadedPassword, this, finished);
     } else {
-        ConnectionSecrets::remove(m_connectionId, this, finished);
+        m_dependencies.removePassword(m_connectionId, this, finished);
     }
 }
 
@@ -399,7 +414,5 @@ void ConnectionDialog::testConnection()
         else
             m_statusCard->setStatus(tr("Could not connect."), Theme::ColorRole::Error, result.error);
     });
-    watcher->setFuture(QtConcurrent::run([profile, connectionPassword] {
-        return ConnectionTester::test(profile, connectionPassword);
-    }));
+    watcher->setFuture(m_dependencies.testConnection(profile, connectionPassword));
 }

@@ -1,0 +1,162 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux-tests:
+    name: Linux / Qt 6.9 / PostgreSQL 16
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-test-password
+          POSTGRES_DB: postgres
+          POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      SLONYARA_TEST_PG_HOST: 127.0.0.1
+      SLONYARA_TEST_PG_PORT: '5432'
+      SLONYARA_TEST_PG_USER: postgres
+      SLONYARA_TEST_PG_PASSWORD: ci-test-password
+      SLONYARA_TEST_PG_DATABASE: postgres
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build pkg-config libpq-dev libsecret-1-dev libgl1-mesa-dev libxkbcommon-x11-0 libxcb-cursor0
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.9.3'
+          cache: true
+      - name: Configure
+        run: >-
+          cmake -S . -B build/ci -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DBUILD_TESTING=OFF
+          -DSLONYARA_BUILD_TESTS=ON
+          -DSLONYARA_BUILD_INTEGRATION_TESTS=ON
+      - name: Build
+        run: cmake --build build/ci --parallel 2
+      - name: Test
+        run: ctest --test-dir build/ci --output-on-failure --output-junit test-results.xml -L slonyara
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-test-results
+          path: |
+            build/ci/test-results.xml
+            build/ci/Testing/Temporary/LastTest.log
+          if-no-files-found: ignore
+
+  macos-tests:
+    name: macOS / Qt 6.9
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - name: Install build dependencies
+        run: brew install libpq pkg-config ninja
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.9.3'
+          cache: true
+      - name: Configure
+        run: >-
+          cmake -S . -B build/ci -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DPostgreSQL_ROOT="$(brew --prefix libpq)"
+          -DBUILD_TESTING=OFF
+          -DSLONYARA_BUILD_TESTS=ON
+          -DSLONYARA_BUILD_INTEGRATION_TESTS=OFF
+      - name: Build
+        run: cmake --build build/ci --parallel 3
+      - name: Test
+        run: ctest --test-dir build/ci --output-on-failure --output-junit test-results.xml -L slonyara
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-test-results
+          path: |
+            build/ci/test-results.xml
+            build/ci/Testing/Temporary/LastTest.log
+          if-no-files-found: ignore
+
+  windows-tests:
+    name: Windows / MinGW UCRT64 / Qt 6
+    runs-on: windows-2022
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-python
+            mingw-w64-ucrt-x86_64-qt6-base
+            mingw-w64-ucrt-x86_64-qt6-tools
+            mingw-w64-ucrt-x86_64-qt6-declarative
+            mingw-w64-ucrt-x86_64-postgresql
+      - name: Configure
+        run: |
+          mingw_root=$(cygpath -m "$MINGW_PREFIX")
+          cmake -S . -B build/ci -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_COMPILER=g++ \
+            -DCMAKE_PREFIX_PATH="$mingw_root" \
+            -DPostgreSQL_ROOT="$mingw_root" \
+            -DPython3_EXECUTABLE="$mingw_root/bin/python.exe" \
+            -DBUILD_TESTING=OFF \
+            -DSLONYARA_BUILD_TESTS=ON \
+            -DSLONYARA_BUILD_INTEGRATION_TESTS=OFF
+      - name: Build
+        run: cmake --build build/ci --parallel 2
+      - name: Test
+        run: |
+          export PATH="$PWD/build/ci/build-pqxx/src:$PWD/build/ci/bin:$PATH"
+          export QT_PLUGIN_PATH="$(cygpath -m "$MINGW_PREFIX/share/qt6/plugins")"
+          ctest --test-dir build/ci --output-on-failure --output-junit test-results.xml -L slonyara -LE integration
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-test-results
+          path: |
+            build/ci/test-results.xml
+            build/ci/Testing/Temporary/LastTest.log
+          if-no-files-found: ignore

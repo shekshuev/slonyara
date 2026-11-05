@@ -1,28 +1,23 @@
 #pragma once
 
 #include "connectionprofile.h"
-#include <QThread>
-#include <QMutex>
-#include <QWaitCondition>
+#include <QObject>
+#include <utility>
 
-// The PostgreSQL connection is created, retained and destroyed in run().
-class ConnectionSession final : public QThread
+class ConnectionSession : public QObject
 {
     Q_OBJECT
 public:
-    ConnectionSession(ConnectionProfile profile, QString password);
-    ~ConnectionSession() override;
+    explicit ConnectionSession(ConnectionProfile profile) : m_profile(std::move(profile)) {}
+    virtual void start() = 0;
+    virtual void stop() = 0;
     const ConnectionProfile &profile() const { return m_profile; }
-    void stop();
 
 signals:
     void opened();
     void failed(const QString &details);
+    void finished();
 
 private:
-    void run() override;
     ConnectionProfile m_profile;
-    QString m_password;
-    QMutex m_mutex;
-    QWaitCondition m_stopped;
 };
