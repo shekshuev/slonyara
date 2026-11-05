@@ -213,10 +213,11 @@ void IntroWindow::createConnection()
         m_connectionStore.addConnection(profile);
         if (!m_connectionStore.save()) {
             m_connectionStore.removeConnectionAt(m_connectionStore.connections().size() - 1);
+            dialog->completeSave(false);
             return;
         }
         reloadConnections();
-        dialog->accept();
+        dialog->completeSave(true);
     });
     dialog->open();
 }
@@ -235,10 +236,13 @@ void IntroWindow::editConnection()
         dialog->setAttribute(Qt::WA_DeleteOnClose);
         connect(dialog, &ConnectionDialog::connectionSubmitted, this,
                 [this, dialog, original](const ConnectionProfile &profile) {
-            if (!m_connectionStore.updateConnection(profile))
+            if (!m_connectionStore.updateConnection(profile)) {
+                dialog->completeSave(false);
                 return;
+            }
             if (!m_connectionStore.save()) {
                 m_connectionStore.updateConnection(original);
+                dialog->completeSave(false);
                 return;
             }
             reloadConnections();
@@ -250,7 +254,7 @@ void IntroWindow::editConnection()
                     break;
                 }
             }
-            dialog->accept();
+            dialog->completeSave(true);
         });
         dialog->open();
         return;

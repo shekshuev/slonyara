@@ -4,78 +4,114 @@
 <context>
     <name>ConnectionDialog</name>
     <message>
-        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="26"/>
+        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="29"/>
         <source>New Connection</source>
         <translation>Новое подключение</translation>
     </message>
     <message>
-        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="26"/>
+        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="29"/>
         <source>Edit Connection</source>
         <translation>Редактировать подключение</translation>
     </message>
     <message>
-        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="77"/>
+        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="83"/>
         <source>Name</source>
         <translation>Название</translation>
     </message>
     <message>
-        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="77"/>
+        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="83"/>
         <source>Host</source>
         <translation>Хост</translation>
     </message>
     <message>
-        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="77"/>
+        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="83"/>
         <source>Port</source>
         <translation>Порт</translation>
     </message>
     <message>
-        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="78"/>
+        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="84"/>
         <source>Database</source>
         <translation>База данных</translation>
     </message>
     <message>
-        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="78"/>
+        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="84"/>
         <source>User</source>
         <translation>Пользователь</translation>
     </message>
     <message>
-        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="79"/>
+        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="85"/>
         <source>Password</source>
         <translation>Пароль</translation>
     </message>
     <message>
-        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="100"/>
+        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="101"/>
+        <source>Save password</source>
+        <translation>Сохранить пароль</translation>
+    </message>
+    <message>
+        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="110"/>
         <source>Save</source>
         <translation>Сохранить</translation>
     </message>
     <message>
-        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="101"/>
+        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="111"/>
         <source>Cancel</source>
         <translation>Отмена</translation>
     </message>
     <message>
-        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="102"/>
-        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="281"/>
+        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="112"/>
+        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="395"/>
         <source>Test Connection</source>
         <translation>Проверить подключение</translation>
     </message>
     <message>
-        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="272"/>
+        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="292"/>
+        <source>Could not save password.</source>
+        <translation>Не удалось сохранить пароль.</translation>
+    </message>
+    <message>
+        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="294"/>
+        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="318"/>
+        <source>Uncheck Save password to save the connection without it.</source>
+        <translation>Снимите флажок «Сохранить пароль», чтобы сохранить подключение без него.</translation>
+    </message>
+    <message>
+        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="310"/>
+        <source>Loading password…</source>
+        <translation>Загрузка пароля…</translation>
+    </message>
+    <message>
+        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="316"/>
+        <source>Could not load password.</source>
+        <translation>Не удалось загрузить пароль.</translation>
+    </message>
+    <message>
+        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="357"/>
+        <source>Could not save connection.</source>
+        <translation>Не удалось сохранить подключение.</translation>
+    </message>
+    <message>
+        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="359"/>
+        <source>Could not restore password.</source>
+        <translation>Не удалось восстановить пароль.</translation>
+    </message>
+    <message>
+        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="382"/>
         <source>Testing connection…</source>
         <translation>Проверка подключения…</translation>
     </message>
     <message>
-        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="274"/>
+        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="386"/>
         <source>Testing…</source>
         <translation>Проверка…</translation>
     </message>
     <message>
-        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="285"/>
+        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="399"/>
         <source>Connection successful.</source>
         <translation>Подключение установлено.</translation>
     </message>
     <message>
-        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="287"/>
+        <location filename="../../src/ui/dialogs/connectiondialog.cpp" line="401"/>
         <source>Could not connect.</source>
         <translation>Не удалось подключиться.</translation>
     </message>

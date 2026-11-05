@@ -1,5 +1,7 @@
 #include "connectiondialog.h"
 #include <QDialogButtonBox>
+#include <QCheckBox>
+#include <QTimer>
 #include <QEvent>
 #include <QFormLayout>
 #include <QFutureWatcher>
@@ -14,6 +16,7 @@
 #include <QStyleHints>
 #include <QVBoxLayout>
 #include "../../core/connections/connectiontester.h"
+#include "../../core/connections/connectionsecrets.h"
 #include "../../platform/windoweffects_p.h"
 #include "../../utils/theme.h"
 #if defined(Q_OS_WIN)
@@ -64,7 +67,10 @@ ConnectionDialog::ConnectionDialog(QWidget *parent, const ConnectionProfile *pro
     m_database = new QLineEdit(QStringLiteral("postgres"), this);
     m_user = new QLineEdit(QStringLiteral("postgres"), this);
     m_password = new QLineEdit(this);
+    m_name->setObjectName(QStringLiteral("connectionName"));
+    m_password->setObjectName(QStringLiteral("connectionPassword"));
     m_password->setEchoMode(QLineEdit::Password);
+    connect(m_password, &QLineEdit::textEdited, this, [this] { m_passwordEdited = true; });
     if (profile) {
         m_connectionId = profile->id;
         m_name->setText(profile->name);
@@ -92,11 +98,15 @@ ConnectionDialog::ConnectionDialog(QWidget *parent, const ConnectionProfile *pro
                 m_statusCard->clear();
         });
     }
+    m_savePassword = new QCheckBox(tr("Save password"), this);
+    m_savePassword->setChecked(profile && profile->savePassword);
+    form->addRow(QString(), m_savePassword);
     layout->addLayout(form);
     layout->addStretch();
     m_statusCard = new StatusCard(this);
     layout->addWidget(m_statusCard);
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel, this);
+    m_buttons = buttons;
     buttons->button(QDialogButtonBox::Save)->setText(tr("Save"));
     buttons->button(QDialogButtonBox::Cancel)->setText(tr("Cancel"));
     m_testButton = buttons->addButton(tr("Test Connection"), QDialogButtonBox::ActionRole);
@@ -120,6 +130,8 @@ ConnectionDialog::ConnectionDialog(QWidget *parent, const ConnectionProfile *pro
     parent->installEventFilter(this);
     anchorToParent();
     m_name->setFocus();
+    if (m_savePassword->isChecked())
+        QTimer::singleShot(0, this, &ConnectionDialog::loadPassword);
 }
 
 void ConnectionDialog::anchorToParent()
@@ -250,20 +262,117 @@ ConnectionProfile ConnectionDialog::toProfile()
     profile.port = static_cast<quint16>(port);
     profile.database = m_database->text().trimmed();
     profile.user = m_user->text().trimmed();
+    profile.savePassword = m_savePassword->isChecked() && !m_password->text().isEmpty();
     return profile;
 }
 
 void ConnectionDialog::submit()
 {
-    if (!validate())
+    if (m_busy || m_testing || !validate())
         return;
-    auto profile = toProfile();
-    emit connectionSubmitted(profile);
+    if (m_secretReadFailed && m_savePassword->isChecked()) {
+        loadPassword();
+        return;
+    }
+    const auto profile = toProfile();
+    setBusy(true);
+    m_statusCard->clear();
+    if (!profile.savePassword && (!m_hadPassword || m_secretUnavailable)) {
+        emit connectionSubmitted(profile);
+        return;
+    }
+    if (profile.savePassword && m_hadPassword && m_password->text() == m_loadedPassword) {
+        emit connectionSubmitted(profile);
+        return;
+    }
+    const auto finished = [this, profile](const ConnectionSecrets::Result &result) {
+        if (!result.success && m_savePassword->isChecked()) {
+            m_secretUnavailable = true;
+            setBusy(false);
+            m_statusCard->setStatus(tr("Could not save password."), Theme::ColorRole::Error,
+                result.error + QStringLiteral("\n\n")
+                + tr("Uncheck Save password to save the connection without it."));
+            return;
+        }
+        m_secretChanged = result.success;
+        emit connectionSubmitted(profile);
+    };
+    if (profile.savePassword)
+        ConnectionSecrets::write(m_connectionId, m_password->text(), this, finished);
+    else
+        ConnectionSecrets::remove(m_connectionId, this, finished);
+}
+
+void ConnectionDialog::loadPassword()
+{
+    setBusy(true);
+    m_statusCard->setStatus(tr("Loading password…"), Theme::ColorRole::Info);
+    ConnectionSecrets::read(m_connectionId, this, [this](const ConnectionSecrets::Result &result) {
+        setBusy(false);
+        m_secretUnavailable = !result.success;
+        m_secretReadFailed = !result.success;
+        if (!result.success) {
+            m_statusCard->setStatus(tr("Could not load password."), Theme::ColorRole::Error,
+                result.error + QStringLiteral("\n\n")
+                + tr("Uncheck Save password to save the connection without it."));
+            return;
+        }
+        m_hadPassword = result.found;
+        m_loadedPassword = result.password;
+        if (!m_passwordEdited)
+            m_password->setText(result.password);
+        if (!m_passwordEdited)
+            m_savePassword->setChecked(result.found);
+        m_statusCard->clear();
+    });
+}
+
+void ConnectionDialog::setBusy(bool busy)
+{
+    m_busy = busy;
+    for (auto *field : {m_name, m_host, m_port, m_database, m_user, m_password})
+        field->setEnabled(!busy);
+    m_savePassword->setEnabled(!busy);
+    m_buttons->setEnabled(!busy);
+    m_testButton->setEnabled(!busy && !m_testing);
+}
+
+void ConnectionDialog::reject()
+{
+    if (!m_busy)
+        QDialog::reject();
+}
+
+void ConnectionDialog::completeSave(bool success)
+{
+    if (success) {
+        accept();
+        return;
+    }
+    const auto finished = [this](const ConnectionSecrets::Result &result) {
+        setBusy(false);
+        if (result.success) {
+            m_secretChanged = false;
+            m_statusCard->setStatus(tr("Could not save connection."), Theme::ColorRole::Error);
+        } else {
+            m_statusCard->setStatus(tr("Could not restore password."), Theme::ColorRole::Error,
+                                    result.error);
+        }
+    };
+    if (!m_secretChanged) {
+        ConnectionSecrets::Result unchanged;
+        unchanged.success = true;
+        finished(unchanged);
+    } else if (m_hadPassword) {
+        ConnectionSecrets::write(m_connectionId, m_loadedPassword, this, finished);
+    } else {
+        ConnectionSecrets::remove(m_connectionId, this, finished);
+    }
 }
 
 void ConnectionDialog::testConnection()
 {
-    if (!m_testButton->isEnabled() || !validate())
+    if (m_busy || !m_testButton->isEnabled() || !validate())
         return;
 
     const auto profile = toProfile();
@@ -271,13 +380,17 @@ void ConnectionDialog::testConnection()
     const auto revision = m_formRevision;
     m_statusCard->setStatus(tr("Testing connection…"), Theme::ColorRole::Info);
     m_testButton->setEnabled(false);
+    m_testing = true;
+    m_buttons->button(QDialogButtonBox::Save)->setEnabled(false);
     m_testButton->setText(tr("Testing…"));
 
     auto *watcher = new QFutureWatcher<ConnectionTestResult>(this);
     connect(watcher, &QFutureWatcher<ConnectionTestResult>::finished, this, [this, watcher, revision] {
         const auto result = watcher->result();
         watcher->deleteLater();
-        m_testButton->setEnabled(true);
+        m_testing = false;
+        m_buttons->button(QDialogButtonBox::Save)->setEnabled(!m_busy);
+        m_testButton->setEnabled(!m_busy);
         m_testButton->setText(tr("Test Connection"));
         if (revision != m_formRevision)
             return;

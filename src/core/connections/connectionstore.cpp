@@ -23,6 +23,7 @@ ConnectionStore::ConnectionStore()
             conn.port = static_cast<quint16>(storedPort);
         }
         conn.user = settings.value("user").toString();
+        conn.savePassword = settings.value("savePassword", false).toBool();
         m_connections.append(conn);
     }
     settings.endArray();
@@ -40,6 +41,7 @@ bool ConnectionStore::save() const
         settings.setValue("host", m_connections.at(i).host);
         settings.setValue("port", m_connections.at(i).port);
         settings.setValue("user", m_connections.at(i).user);
+        settings.setValue("savePassword", m_connections.at(i).savePassword);
     }
     settings.endArray();
     settings.sync();

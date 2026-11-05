@@ -10,4 +10,5 @@ struct ConnectionProfile
     quint16 port = 5432;
     QString database;
     QString user;
+    bool savePassword = false;
 };
