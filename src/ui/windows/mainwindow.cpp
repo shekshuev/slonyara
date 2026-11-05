@@ -1,13 +1,15 @@
 #include "mainwindow.h"
+#include "../../core/connections/connectionsession.h"
 
 #include <QAction>
 #include <QApplication>
 #include <QMenuBar>
 #include <QMenu>
 
-MainWindow::MainWindow(const ConnectionProfile &profile, QWidget *parent)
-    : AppWindow(parent)
+MainWindow::MainWindow(ConnectionSession *session, QWidget *parent)
+    : AppWindow(parent), m_session(session)
 {
+    setWindowTitle(tr("%1 — Slonyara").arg(session->profile().name));
     resize(1200, 750);
     buildLayout();
 }

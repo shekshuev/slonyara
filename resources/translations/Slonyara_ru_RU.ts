@@ -118,6 +118,9 @@
 </context>
 <context>
     <name>IntroWindow</name>
+    <message><source>Connecting…</source><translation>Подключение…</translation></message>
+    <message><source>Cancel</source><translation>Отмена</translation></message>
+    <message><source>Could not connect.</source><translation>Не удалось подключиться.</translation></message>
     <message>
         <source>Connect</source>
         <translation>Подключиться</translation>
@@ -198,5 +201,10 @@
         <source>Quit</source>
         <translation>Выйти</translation>
     </message>
+</context>
+<context>
+    <name>ApplicationController</name>
+    <message><source>Connect to %1</source><translation>Подключение к %1</translation></message>
+    <message><source>Password for %1:</source><translation>Пароль для %1:</translation></message>
 </context>
 </TS>

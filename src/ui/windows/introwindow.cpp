@@ -1,5 +1,6 @@
 #include "introwindow.h"
 #include "../delegates/connectiondelegate.h"
+#include "../widgets/statuscard.h"
 #include "../../utils/theme.h"
 
 #include <QCoreApplication>
@@ -66,7 +67,10 @@ void IntroWindow::paintEvent(QPaintEvent *event)
 void IntroWindow::buildLayout()
 {
     auto *central = new QWidget(this);
-    auto *layout = new QHBoxLayout(central);
+    auto *outerLayout = new QVBoxLayout(central);
+    outerLayout->setContentsMargins(0, 0, 0, 0);
+    auto *layout = new QHBoxLayout;
+    outerLayout->addLayout(layout, 1);
 #if defined(Q_OS_MACOS)
     central->setAttribute(Qt::WA_ContentsMarginsRespectsSafeArea, false);
 #endif
@@ -94,12 +98,18 @@ void IntroWindow::buildLayout()
     Theme::applyFor(versionLbl, Theme::FontRole::Caption, Theme::ColorRole::Muted);
 
     auto *createBtn = new QPushButton(this);
+    m_createButton = createBtn;
     createBtn->setText(tr("New Connection"));
     connect(createBtn, &QPushButton::clicked, this, &IntroWindow::createConnection);
     auto *connectBtn = new QPushButton(tr("Connect"), this);
+    m_connectButton = connectBtn;
     connectBtn->setEnabled(false);
     connect(connectBtn, &QPushButton::clicked, this, &IntroWindow::openSelectedConnection);
     auto *editBtn = new QPushButton(tr("Edit"), this);
+    m_editButton = editBtn;
+    m_cancelButton = new QPushButton(tr("Cancel"), this);
+    m_cancelButton->hide();
+    connect(m_cancelButton, &QPushButton::clicked, this, &IntroWindow::connectionCancelled);
     editBtn->setEnabled(false);
     connect(editBtn, &QPushButton::clicked, this, &IntroWindow::editConnection);
 
@@ -133,8 +143,8 @@ void IntroWindow::buildLayout()
     connectionsView->setMouseTracking(true);
     connectionsView->setModel(filterModel);
     connect(connectionsView->selectionModel(), &QItemSelectionModel::selectionChanged,
-            editBtn, [connectionsView, editBtn, connectBtn] {
-        const bool hasSelection = connectionsView->selectionModel()->hasSelection();
+            editBtn, [this, connectionsView, editBtn, connectBtn] {
+        const bool hasSelection = !m_connecting && connectionsView->selectionModel()->hasSelection();
         editBtn->setEnabled(hasSelection);
         connectBtn->setEnabled(hasSelection);
     });
@@ -182,12 +192,15 @@ void IntroWindow::buildLayout()
 
     rightPanelLayout->addWidget(searchInput);
     rightPanelLayout->addWidget(connectionsArea, 1);
+    m_status = new StatusCard(central);
+    outerLayout->addWidget(m_status);
 
     leftPanelLayout->addWidget(imageLbl, 0, Qt::AlignHCenter);
     leftPanelLayout->addWidget(titleLbl, 0, Qt::AlignHCenter);
     leftPanelLayout->addWidget(versionLbl, 0, Qt::AlignHCenter);
     leftPanelLayout->addStretch(1);
     leftPanelLayout->addWidget(connectBtn);
+    leftPanelLayout->addWidget(m_cancelButton);
     leftPanelLayout->addWidget(editBtn);
     leftPanelLayout->addSpacing(12);
     leftPanelLayout->addWidget(createBtn);
@@ -213,6 +226,8 @@ bool IntroWindow::eventFilter(QObject *watched, QEvent *event)
 
 void IntroWindow::openSelectedConnection()
 {
+    if (m_connecting)
+        return;
     const auto selected = m_connectionsView->selectionModel()->selectedIndexes();
     if (selected.isEmpty())
         return;
@@ -223,6 +238,25 @@ void IntroWindow::openSelectedConnection()
             return;
         }
     }
+}
+
+void IntroWindow::setConnecting(bool connecting)
+{
+    m_connecting = connecting;
+    const bool selected = m_connectionsView->selectionModel()->hasSelection();
+    m_connectButton->setEnabled(!connecting && selected);
+    m_connectButton->setText(connecting ? tr("Connecting…") : tr("Connect"));
+    m_editButton->setEnabled(!connecting && selected);
+    m_createButton->setEnabled(!connecting);
+    m_connectionsView->setEnabled(!connecting);
+    m_cancelButton->setVisible(connecting);
+    if (connecting)
+        m_status->clear();
+}
+
+void IntroWindow::showConnectionError(const QString &details)
+{
+    m_status->setStatus(tr("Could not connect."), Theme::ColorRole::Error, details);
 }
 
 void IntroWindow::reloadConnections()
