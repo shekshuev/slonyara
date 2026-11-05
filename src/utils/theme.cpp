@@ -1,4 +1,5 @@
 #include "theme.h"
+#include "../ui/widgets/statuscard.h"
 
 #include <QLabel>
 #include <QLineEdit>
@@ -18,6 +19,8 @@ void refreshStyle(QWidget *widget)
 {
     widget->style()->unpolish(widget);
     widget->style()->polish(widget);
+    if (auto *card = qobject_cast<StatusCard *>(widget))
+        Theme::applyFor(card, static_cast<Theme::ColorRole>(card->property("statusRole").toInt()));
     if (auto *label = qobject_cast<QLabel *>(widget)) {
         const QString roleName = label->property("colorRole").toString();
         const auto role = roleName == "muted" ? Theme::ColorRole::Muted
@@ -46,6 +49,14 @@ QColor color(ColorRole role, const QWidget *widget)
         }
     }
     switch (role) {
+    case ColorRole::Warning:
+        return isDark ? QColor("#F5BF58") : QColor("#8A5700");
+    case ColorRole::Error:
+        return isDark ? QColor("#FF9298") : QColor("#B42332");
+    case ColorRole::Info:
+        return isDark ? QColor("#8DBEFF") : QColor("#175DB0");
+    case ColorRole::Success:
+        return isDark ? QColor("#77D5A0") : QColor("#187344");
     case ColorRole::SidebarTint:
         return QColor(0xFF, 0xFF, 0xFF, isDark ? 18 : 64);
     case ColorRole::ItemHover:
@@ -131,6 +142,23 @@ void applyFor(QLineEdit *input)
     input->setProperty("platform", "windows");
 #endif
     refreshStyle(input);
+}
+
+void applyFor(StatusCard *card, ColorRole role)
+{
+    if (!card)
+        return;
+    card->setProperty("statusRole", static_cast<int>(role));
+    const QColor foreground = color(role, card);
+    QColor background = foreground;
+    background.setAlpha(22);
+    QColor border = foreground;
+    border.setAlpha(85);
+    card->setStyleSheet(QStringLiteral(
+        "QFrame#statusCard { background-color: %1; border: 1px solid %2; border-radius: 7px; }"
+        "QFrame#statusCard QLabel, QFrame#statusCard QPushButton { color: %3; background: transparent; }"
+        "QFrame#statusCard QPushButton { border: none; padding: 2px 0; text-decoration: underline; }")
+        .arg(background.name(QColor::HexArgb), border.name(QColor::HexArgb), foreground.name()));
 }
 
 void setTheme(QWidget *mainWindow, bool isDark)

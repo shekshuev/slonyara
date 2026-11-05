@@ -5,6 +5,7 @@
 
 class QLineEdit;
 class QPushButton;
+class StatusCard;
 
 class ConnectionDialog final : public QDialog
 {
@@ -36,6 +37,8 @@ private:
     QLineEdit *m_user;
     QLineEdit *m_password;
     QPushButton *m_testButton = nullptr;
+    StatusCard *m_statusCard = nullptr;
+    quint64 m_formRevision = 0;
     bool m_effectsReady = false;
     bool m_backdropAvailable = false;
 };

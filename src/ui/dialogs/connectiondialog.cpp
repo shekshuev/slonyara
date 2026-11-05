@@ -8,7 +8,7 @@
 #include <QIntValidator>
 #include <QLabel>
 #include <QLineEdit>
-#include <QMessageBox>
+#include "../widgets/statuscard.h"
 #include <QPainter>
 #include <QPushButton>
 #include <QStyleHints>
@@ -78,9 +78,16 @@ ConnectionDialog::ConnectionDialog(QWidget *parent) : QDialog(parent)
         label->setBuddy(field.second);
         form->addRow(label, field.second);
         connect(field.second, &QLineEdit::returnPressed, this, &ConnectionDialog::submit);
+        connect(field.second, &QLineEdit::textChanged, this, [this] {
+            ++m_formRevision;
+            if (m_statusCard)
+                m_statusCard->clear();
+        });
     }
     layout->addLayout(form);
     layout->addStretch();
+    m_statusCard = new StatusCard(this);
+    layout->addWidget(m_statusCard);
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel, this);
     buttons->button(QDialogButtonBox::Save)->setText(tr("Save"));
     buttons->button(QDialogButtonBox::Cancel)->setText(tr("Cancel"));
@@ -252,19 +259,23 @@ void ConnectionDialog::testConnection()
 
     const auto profile = toProfile();
     const auto connectionPassword = m_password->text();
+    const auto revision = m_formRevision;
+    m_statusCard->setStatus(tr("Testing connection…"), Theme::ColorRole::Info);
     m_testButton->setEnabled(false);
     m_testButton->setText(tr("Testing…"));
 
     auto *watcher = new QFutureWatcher<ConnectionTestResult>(this);
-    connect(watcher, &QFutureWatcher<ConnectionTestResult>::finished, this, [this, watcher] {
+    connect(watcher, &QFutureWatcher<ConnectionTestResult>::finished, this, [this, watcher, revision] {
         const auto result = watcher->result();
         watcher->deleteLater();
         m_testButton->setEnabled(true);
         m_testButton->setText(tr("Test Connection"));
+        if (revision != m_formRevision)
+            return;
         if (result.success)
-            QMessageBox::information(this, tr("Test Connection"), tr("Connection successful."));
+            m_statusCard->setStatus(tr("Connection successful."), Theme::ColorRole::Success);
         else
-            QMessageBox::warning(this, tr("Test Connection"), result.error);
+            m_statusCard->setStatus(tr("Could not connect."), Theme::ColorRole::Error, result.error);
     });
     watcher->setFuture(QtConcurrent::run([profile, connectionPassword] {
         return ConnectionTester::test(profile, connectionPassword);
