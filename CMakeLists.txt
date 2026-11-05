@@ -3,6 +3,10 @@ project(Slonyara
     VERSION 0.0.1
     LANGUAGES CXX)
 
+if(APPLE)
+    enable_language(OBJCXX)
+endif()
+
 find_package(Qt6 6.9 REQUIRED COMPONENTS Core Widgets LinguistTools Concurrent)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -39,7 +43,6 @@ configure_file(
 if(WIN32)
     list(FILTER SLONYARA_SOURCES EXCLUDE REGEX "_(mac|linux)\\.(cpp|mm)$")
 elseif(APPLE)
-    enable_language(OBJCXX)
     list(FILTER SLONYARA_SOURCES EXCLUDE REGEX "_(win|linux)\\.(cpp|mm)$")
 else()
     list(FILTER SLONYARA_SOURCES EXCLUDE REGEX "_(win|mac)\\.(cpp|mm)$")
