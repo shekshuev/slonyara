@@ -10,6 +10,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QListView>
+#include <QItemSelectionModel>
 #include <QPainter>
 #include <QPixmap>
 #include <QPushButton>
@@ -94,6 +95,9 @@ void IntroWindow::buildLayout()
     auto *createBtn = new QPushButton(this);
     createBtn->setText(tr("New Connection"));
     connect(createBtn, &QPushButton::clicked, this, &IntroWindow::createConnection);
+    auto *editBtn = new QPushButton(tr("Edit"), this);
+    editBtn->hide();
+    connect(editBtn, &QPushButton::clicked, this, &IntroWindow::editConnection);
 
     auto *rightPanel = new QWidget(this);
     auto *rightPanelLayout = new QVBoxLayout(rightPanel);
@@ -116,6 +120,7 @@ void IntroWindow::buildLayout()
     filterModel->setFilterCaseSensitivity(Qt::CaseInsensitive);
 
     auto *connectionsView = new QListView(rightPanel);
+    m_connectionsView = connectionsView;
 #if defined(Q_OS_WIN)
     connectionsView->setFrameShape(QFrame::NoFrame);
     connectionsView->setAutoFillBackground(false);
@@ -123,6 +128,10 @@ void IntroWindow::buildLayout()
 #endif
     connectionsView->setMouseTracking(true);
     connectionsView->setModel(filterModel);
+    connect(connectionsView->selectionModel(), &QItemSelectionModel::selectionChanged,
+            editBtn, [connectionsView, editBtn] {
+        editBtn->setVisible(connectionsView->selectionModel()->hasSelection());
+    });
     connectionsView->setItemDelegate(new ConnectionDelegate(connectionsView));
     connectionsView->setUniformItemSizes(true);
     connectionsView->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -169,6 +178,7 @@ void IntroWindow::buildLayout()
     leftPanelLayout->addWidget(titleLbl, 0, Qt::AlignHCenter);
     leftPanelLayout->addWidget(versionLbl, 0, Qt::AlignHCenter);
     leftPanelLayout->addStretch(1);
+    leftPanelLayout->addWidget(editBtn);
     leftPanelLayout->addWidget(createBtn);
 
     layout->addWidget(leftPanel);
@@ -209,4 +219,40 @@ void IntroWindow::createConnection()
         dialog->accept();
     });
     dialog->open();
+}
+
+void IntroWindow::editConnection()
+{
+    const auto selected = m_connectionsView->selectionModel()->selectedIndexes();
+    if (selected.isEmpty())
+        return;
+    const auto id = selected.first().data(ConnectionIdRole).toUuid();
+    for (const auto &connection : m_connectionStore.connections()) {
+        if (connection.id != id)
+            continue;
+        const auto original = connection;
+        auto *dialog = new ConnectionDialog(this, &original);
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        connect(dialog, &ConnectionDialog::connectionSubmitted, this,
+                [this, dialog, original](const ConnectionProfile &profile) {
+            if (!m_connectionStore.updateConnection(profile))
+                return;
+            if (!m_connectionStore.save()) {
+                m_connectionStore.updateConnection(original);
+                return;
+            }
+            reloadConnections();
+            const auto *model = m_connectionsView->model();
+            for (int row = 0; row < model->rowCount(); ++row) {
+                const auto index = model->index(row, 0);
+                if (index.data(ConnectionIdRole).toUuid() == profile.id) {
+                    m_connectionsView->setCurrentIndex(index);
+                    break;
+                }
+            }
+            dialog->accept();
+        });
+        dialog->open();
+        return;
+    }
 }

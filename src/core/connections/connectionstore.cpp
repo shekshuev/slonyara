@@ -62,3 +62,14 @@ void ConnectionStore::removeConnectionAt(int i)
         m_connections.removeAt(i);
     }
 }
+
+bool ConnectionStore::updateConnection(const ConnectionProfile &conn)
+{
+    for (auto &stored : m_connections) {
+        if (stored.id == conn.id) {
+            stored = conn;
+            return true;
+        }
+    }
+    return false;
+}

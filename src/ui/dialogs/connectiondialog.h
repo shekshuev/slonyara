@@ -11,7 +11,7 @@ class ConnectionDialog final : public QDialog
 {
     Q_OBJECT
 public:
-    explicit ConnectionDialog(QWidget *parent);
+    explicit ConnectionDialog(QWidget *parent, const ConnectionProfile *profile = nullptr);
 
 signals:
     void connectionSubmitted(const ConnectionProfile &profile);
@@ -39,6 +39,7 @@ private:
     QPushButton *m_testButton = nullptr;
     StatusCard *m_statusCard = nullptr;
     quint64 m_formRevision = 0;
+    QUuid m_connectionId = QUuid::createUuid();
     bool m_effectsReady = false;
     bool m_backdropAvailable = false;
 };

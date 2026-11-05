@@ -10,6 +10,7 @@ public:
     const QList<ConnectionProfile> &connections() const;
     bool save() const;
     void addConnection(const ConnectionProfile &conn);
+    bool updateConnection(const ConnectionProfile &conn);
     void removeConnectionAt(int i);
 
 private:

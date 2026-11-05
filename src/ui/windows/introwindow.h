@@ -4,6 +4,7 @@
 #include "../../core/connections/connectionstore.h"
 
 class QStandardItemModel;
+class QListView;
 
 class IntroWindow : public AppWindow
 {
@@ -18,8 +19,10 @@ protected:
 private:
     void buildLayout() override;
     void createConnection();
+    void editConnection();
     void reloadConnections();
     ConnectionStore m_connectionStore;
     QStandardItemModel *m_connectionsModel = nullptr;
     QWidget *m_leftPanel = nullptr;
+    QListView *m_connectionsView = nullptr;
 };

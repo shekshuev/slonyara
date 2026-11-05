@@ -21,9 +21,9 @@
 #include <dwmapi.h>
 #endif
 
-ConnectionDialog::ConnectionDialog(QWidget *parent) : QDialog(parent)
+ConnectionDialog::ConnectionDialog(QWidget *parent, const ConnectionProfile *profile) : QDialog(parent)
 {
-    setWindowTitle(tr("New Connection"));
+    setWindowTitle(profile ? tr("Edit Connection") : tr("New Connection"));
 #if defined(Q_OS_WIN)
     setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::WindowSystemMenuHint
                    | Qt::WindowCloseButtonHint | Qt::MSWindowsFixedSizeDialogHint);
@@ -65,6 +65,14 @@ ConnectionDialog::ConnectionDialog(QWidget *parent) : QDialog(parent)
     m_user = new QLineEdit(QStringLiteral("postgres"), this);
     m_password = new QLineEdit(this);
     m_password->setEchoMode(QLineEdit::Password);
+    if (profile) {
+        m_connectionId = profile->id;
+        m_name->setText(profile->name);
+        m_host->setText(profile->host);
+        m_port->setText(QString::number(profile->port));
+        m_database->setText(profile->database);
+        m_user->setText(profile->user);
+    }
     const QList<QPair<QString, QLineEdit *>> fields = {
         {tr("Name"), m_name}, {tr("Host"), m_host}, {tr("Port"), m_port},
         {tr("Database"), m_database}, {tr("User"), m_user},
@@ -236,6 +244,7 @@ ConnectionProfile ConnectionDialog::toProfile()
 {
     const int port = m_port->text().toInt();
     ConnectionProfile profile;
+    profile.id = m_connectionId;
     profile.name = m_name->text().trimmed();
     profile.host = m_host->text().trimmed();
     profile.port = static_cast<quint16>(port);
