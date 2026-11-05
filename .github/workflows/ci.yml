@@ -19,6 +19,8 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v6
+      - name: Check CI helper scripts
+        run: bash -n tools/build-msan-libcxx.sh
       - name: Install formatter
         run: |
           sudo apt-get update
