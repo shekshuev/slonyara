@@ -3,6 +3,9 @@
 Requires Qt 6.9+, CMake 3.21+, Python 3, and PostgreSQL development libraries.
 On Windows, also install the matching 64-bit MinGW kit and Ninja.
 
+Fetch vendored libraries: `git submodule update --init --recursive`.
+On Linux, QtKeychain also needs Qt DBus and libsecret development packages.
+
 ## Windows
 
 Copy `CMakeUserPresets.json.example` to `CMakeUserPresets.json` and adjust the paths.

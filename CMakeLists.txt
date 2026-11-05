@@ -17,6 +17,13 @@ else()
 endif()
 add_subdirectory(vendor/libpqxx build-pqxx)
 
+function(slonyara_add_qtkeychain)
+    set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
+    set(BUILD_TRANSLATIONS OFF)
+    add_subdirectory(vendor/qtkeychain build-qtkeychain)
+endfunction()
+slonyara_add_qtkeychain()
+
 file(GLOB_RECURSE SLONYARA_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h"
@@ -88,6 +95,7 @@ target_link_libraries(Slonyara
         Qt::Core
         Qt::Widgets
         pqxx
+        qt6keychain
         Qt::Concurrent
 )
 

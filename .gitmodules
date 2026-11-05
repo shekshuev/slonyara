@@ -1,3 +1,6 @@
 [submodule "vendor/libpqxx"]
 	path = vendor/libpqxx
 	url = https://github.com/jtv/libpqxx.git
+[submodule "vendor/qtkeychain"]
+	path = vendor/qtkeychain
+	url = https://github.com/frankosterfeld/qtkeychain.git

@@ -20,7 +20,7 @@
         "Python3_EXECUTABLE": "$env{Python3_EXECUTABLE}"
       },
       "environment": {
-        "PATH": "$env{MINGW_ROOT}/bin;$env{QT_ROOT}/bin;$env{PostgreSQL_ROOT}/bin;${sourceDir}/build/${presetName}/build-pqxx/src;$penv{PATH}"
+        "PATH": "$env{MINGW_ROOT}/bin;$env{QT_ROOT}/bin;$env{PostgreSQL_ROOT}/bin;${sourceDir}/build/${presetName}/build-pqxx/src;${sourceDir}/build/${presetName}/bin;$penv{PATH}"
       }
     }
   ],
