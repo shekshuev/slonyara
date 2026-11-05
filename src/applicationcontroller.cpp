@@ -12,22 +12,23 @@
 #include <algorithm>
 
 ApplicationController::ApplicationController(QObject *parent)
-    : ApplicationController(Dependencies{
-          ConnectionSecrets::read,
-          [](const ConnectionProfile &profile, const QString &password) {
-              return std::make_unique<PostgresSession>(profile, password);
-          }}, parent)
+    : ApplicationController(Dependencies{ ConnectionSecrets::read,
+                                    [](const ConnectionProfile &profile, const QString &password) {
+                                        return std::make_unique<PostgresSession>(profile, password);
+                                    } },
+              parent)
 {
 }
 
 ApplicationController::ApplicationController(Dependencies dependencies, QObject *parent)
-    : QObject(parent), m_dependencies(std::move(dependencies)),
+    : QObject(parent),
+      m_dependencies(std::move(dependencies)),
       m_introWindow(std::make_unique<IntroWindow>())
 {
-    connect(m_introWindow.get(), &IntroWindow::connectionRequested,
-            this, &ApplicationController::openWorkspace);
-    connect(m_introWindow.get(), &IntroWindow::connectionCancelled,
-            this, &ApplicationController::cancelConnection);
+    connect(m_introWindow.get(), &IntroWindow::connectionRequested, this,
+            &ApplicationController::openWorkspace);
+    connect(m_introWindow.get(), &IntroWindow::connectionCancelled, this,
+            &ApplicationController::cancelConnection);
 }
 
 ApplicationController::~ApplicationController()
@@ -97,7 +98,8 @@ void ApplicationController::requestPassword(const ConnectionProfile &profile)
 #endif
 }
 
-void ApplicationController::connectProfile(const ConnectionProfile &profile, const QString &password)
+void ApplicationController::connectProfile(
+        const ConnectionProfile &profile, const QString &password)
 {
     m_connectingTimer.start();
     const auto attempt = m_attempt;
@@ -107,11 +109,12 @@ void ApplicationController::connectProfile(const ConnectionProfile &profile, con
             return;
         completeConnection(attempt, true);
     });
-    connect(m_session.get(), &ConnectionSession::failed, this, [this, attempt](const QString &error) {
-        if (attempt != m_attempt)
-            return;
-        m_connectionError = error;
-    });
+    connect(m_session.get(), &ConnectionSession::failed, this,
+            [this, attempt](const QString &error) {
+                if (attempt != m_attempt)
+                    return;
+                m_connectionError = error;
+            });
     connect(m_session.get(), &ConnectionSession::finished, this, [this, attempt] {
         m_session.reset();
         if (attempt == m_attempt && !m_connectionError.isEmpty()) {
@@ -141,8 +144,8 @@ void ApplicationController::completeConnection(quint64 attempt, bool success, co
         if (!m_session)
             return;
         m_mainWindow = std::make_unique<MainWindow>(m_session.get());
-        connect(m_mainWindow.get(), &MainWindow::closeWorkspaceRequested,
-                this, &ApplicationController::closeWorkspace, Qt::QueuedConnection);
+        connect(m_mainWindow.get(), &MainWindow::closeWorkspaceRequested, this,
+                &ApplicationController::closeWorkspace, Qt::QueuedConnection);
         m_mainWindow->show();
         m_introWindow->hide();
     });

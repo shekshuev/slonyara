@@ -16,40 +16,45 @@ class StatusDetailsDialogTest final : public QObject
 {
     Q_OBJECT
 private:
-    static QPushButton *button(StatusDetailsDialog &dialog, QDialogButtonBox::ButtonRole role) {
+    static QPushButton *button(StatusDetailsDialog &dialog, QDialogButtonBox::ButtonRole role)
+    {
         auto *box = dialog.findChild<QDialogButtonBox *>();
-        if (!box) return nullptr;
+        if (!box)
+            return nullptr;
         for (auto *candidate : box->buttons())
             if (box->buttonRole(candidate) == role)
                 return qobject_cast<QPushButton *>(candidate);
         return nullptr;
     }
-    static QPoint centeredPosition(const QWidget &parent, const StatusDetailsDialog &dialog) {
+    static QPoint centeredPosition(const QWidget &parent, const StatusDetailsDialog &dialog)
+    {
 #if defined(Q_OS_WIN)
         const auto size = dialog.frameGeometry().size();
 #else
         const auto size = dialog.size();
 #endif
-        return parent.mapToGlobal(QPoint((parent.width() - size.width()) / 2,
-                                        (parent.height() - size.height()) / 2));
+        return parent.mapToGlobal(
+                QPoint((parent.width() - size.width()) / 2, (parent.height() - size.height()) / 2));
     }
 
 private slots:
-    void initTestCase() {
-        QApplication::setQuitOnLastWindowClosed(false);
-    }
-    void content_data() {
+    void initTestCase() { QApplication::setQuitOnLastWindowClosed(false); }
+    void content_data()
+    {
         QTest::addColumn<QString>("summary");
         QTest::addColumn<QString>("details");
         QTest::newRow("plain") << "Connection failed" << "Server refused the connection";
         QTest::newRow("empty") << "" << "";
-        QTest::newRow("unicode-multiline") << QString::fromUtf8("Ошибка подключения 🐘")
-            << QString::fromUtf8("Сервер недоступен\nПользователь: тест\nПовторите попытку.");
+        QTest::newRow("unicode-multiline")
+                << QString::fromUtf8("Ошибка подключения 🐘")
+                << QString::fromUtf8("Сервер недоступен\nПользователь: тест\nПовторите попытку.");
         QTest::newRow("literal-markup") << "<b>Error & warning</b>"
-            << "<html><script>example</script></html>\nA & B";
-        QTest::newRow("long") << QString(1000, 'S') << QString("Long diagnostic line\n").repeated(1000);
+                                        << "<html><script>example</script></html>\nA & B";
+        QTest::newRow("long") << QString(1000, 'S')
+                              << QString("Long diagnostic line\n").repeated(1000);
     }
-    void content() {
+    void content()
+    {
         QFETCH(QString, summary);
         QFETCH(QString, details);
         StatusDetailsDialog dialog(summary, details);
@@ -66,12 +71,15 @@ private slots:
         QTest::keyClicks(text, "overwrite");
         QCOMPARE(text->toPlainText(), details);
     }
-    void copyPreservesExactDetailsAndKeepsDialogOpen_data() {
+    void copyPreservesExactDetailsAndKeepsDialogOpen_data()
+    {
         QTest::addColumn<QString>("details");
-        QTest::newRow("multiline") << QString::fromUtf8("Ошибка 'quoted' \\ path 🐘\nSecond line\n");
+        QTest::newRow("multiline")
+                << QString::fromUtf8("Ошибка 'quoted' \\ path 🐘\nSecond line\n");
         QTest::newRow("empty") << QString{};
     }
-    void copyPreservesExactDetailsAndKeepsDialogOpen() {
+    void copyPreservesExactDetailsAndKeepsDialogOpen()
+    {
         QFETCH(QString, details);
         QApplication::clipboard()->setText("old clipboard contents");
         StatusDetailsDialog dialog("Summary must not be copied", details);
@@ -84,7 +92,8 @@ private slots:
         QVERIFY(dialog.isVisible());
         QCOMPARE(finished.count(), 0);
     }
-    void closeButtonRejectsDialog() {
+    void closeButtonRejectsDialog()
+    {
         StatusDetailsDialog dialog("Error", "Details");
         dialog.show();
         auto *close = button(dialog, QDialogButtonBox::RejectRole);
@@ -95,7 +104,8 @@ private slots:
         QVERIFY(!dialog.isVisible());
         QCOMPARE(dialog.result(), int(QDialog::Rejected));
     }
-    void escapeRejectsDialog() {
+    void escapeRejectsDialog()
+    {
         StatusDetailsDialog dialog("Error", "Details");
         dialog.show();
         QSignalSpy rejected(&dialog, &QDialog::rejected);
@@ -103,7 +113,8 @@ private slots:
         QCOMPARE(rejected.count(), 1);
         QVERIFY(!dialog.isVisible());
     }
-    void worksWithoutParent() {
+    void worksWithoutParent()
+    {
         StatusDetailsDialog dialog("Error", "Details");
         dialog.show();
         QVERIFY(dialog.isVisible());
@@ -111,7 +122,8 @@ private slots:
         dialog.close();
         QVERIFY(!dialog.isVisible());
     }
-    void staysCenteredWhenParentMovesAndResizes() {
+    void staysCenteredWhenParentMovesAndResizes()
+    {
         QWidget parent;
         parent.resize(900, 700);
         parent.move(50, 50);
@@ -125,7 +137,8 @@ private slots:
         parent.resize(1000, 800);
         QTRY_COMPARE(dialog.pos(), centeredPosition(parent, dialog));
     }
-    void cardOpensCurrentDetailsAndDeletesDialogOnClose() {
+    void cardOpensCurrentDetailsAndDeletesDialogOnClose()
+    {
         QWidget parent;
         auto *layout = new QVBoxLayout(&parent);
         auto *card = new StatusCard(&parent);
@@ -147,7 +160,8 @@ private slots:
         dialog->close();
         QTRY_VERIFY(dialog.isNull());
     }
-    void cardWithoutDetailsHidesDetailsAction() {
+    void cardWithoutDetailsHidesDetailsAction()
+    {
         QWidget parent;
         StatusCard card(&parent);
         parent.show();

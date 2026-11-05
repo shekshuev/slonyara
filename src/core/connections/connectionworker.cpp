@@ -2,7 +2,6 @@
 #include "connectionoptions.h"
 
 #include <QElapsedTimer>
-#include <QMutexLocker>
 #include <pqxx/pqxx>
 #include <stdexcept>
 #include <utility>
@@ -20,9 +19,7 @@ ConnectionWorker::~ConnectionWorker()
 
 void ConnectionWorker::stop()
 {
-    QMutexLocker lock(&m_mutex);
-    requestInterruption();
-    m_stopped.wakeAll();
+    m_stop.requestStop();
 }
 
 void ConnectionWorker::run()
@@ -32,10 +29,10 @@ void ConnectionWorker::run()
         m_password.clear();
         QElapsedTimer timer;
         timer.start();
-        pqxx::connecting pending{options};
+        pqxx::connecting pending{ options };
         options.clear();
         while (!pending.done()) {
-            if (isInterruptionRequested())
+            if (m_stop.stopRequested())
                 return;
             if (timer.elapsed() >= 10000)
                 throw std::runtime_error("Connection timed out.");
@@ -44,16 +41,10 @@ void ConnectionWorker::run()
                 QThread::msleep(20);
         }
         auto connection = std::move(pending).produce();
-        QMutexLocker lock(&m_mutex);
-        if (isInterruptionRequested())
-            return;
-        emit opened();
-        while (!isInterruptionRequested())
-            m_stopped.wait(&m_mutex);
+        m_stop.waitUntilStopped([this] { emit opened(); });
     } catch (const std::exception &error) {
         m_password.clear();
-        if (!isInterruptionRequested())
+        if (!m_stop.stopRequested())
             emit failed(QString::fromUtf8(error.what()));
     }
 }
-

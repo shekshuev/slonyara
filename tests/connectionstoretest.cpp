@@ -12,7 +12,8 @@ class ConnectionStoreTest final : public QObject
 private:
     std::unique_ptr<QTemporaryDir> m_directory;
 
-    static ConnectionProfile profile(const QString &name) {
+    static ConnectionProfile profile(const QString &name)
+    {
         ConnectionProfile result;
         result.name = name;
         result.host = "db.example.test";
@@ -22,7 +23,8 @@ private:
         result.savePassword = true;
         return result;
     }
-    static void compareProfiles(const ConnectionProfile &actual, const ConnectionProfile &expected) {
+    static void compareProfiles(const ConnectionProfile &actual, const ConnectionProfile &expected)
+    {
         QCOMPARE(actual.id, expected.id);
         QCOMPARE(actual.name, expected.name);
         QCOMPARE(actual.host, expected.host);
@@ -31,7 +33,8 @@ private:
         QCOMPARE(actual.user, expected.user);
         QCOMPARE(actual.savePassword, expected.savePassword);
     }
-    static void writeSettings(const QVariantMap &values) {
+    static void writeSettings(const QVariantMap &values)
+    {
         QSettings settings;
         settings.beginWriteArray("connections", 1);
         settings.setArrayIndex(0);
@@ -43,23 +46,27 @@ private:
     }
 
 private slots:
-    void initTestCase() {
+    void initTestCase()
+    {
         QCoreApplication::setOrganizationName("SlonyaraTests");
         QCoreApplication::setApplicationName("ConnectionStoreTest");
         QSettings::setDefaultFormat(QSettings::IniFormat);
     }
-    void init() {
+    void init()
+    {
         m_directory = std::make_unique<QTemporaryDir>();
         QVERIFY(m_directory->isValid());
         QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, m_directory->path());
         QSettings::setPath(QSettings::IniFormat, QSettings::SystemScope, m_directory->path());
     }
-    void startsEmptyWithoutSettingsFile() {
+    void startsEmptyWithoutSettingsFile()
+    {
         QVERIFY(!QFile::exists(QSettings().fileName()));
         ConnectionStore store;
         QVERIFY(store.connections().isEmpty());
     }
-    void savesAndLoadsAllFieldsInOrder() {
+    void savesAndLoadsAllFieldsInOrder()
+    {
         auto first = profile(QString::fromUtf8("Локальная БД 🐘"));
         auto second = profile("Second server");
         second.host = "::1";
@@ -76,7 +83,8 @@ private slots:
         compareProfiles(loaded.connections().at(0), first);
         compareProfiles(loaded.connections().at(1), second);
     }
-    void changesAreNotPersistedUntilSave() {
+    void changesAreNotPersistedUntilSave()
+    {
         ConnectionStore store;
         store.addConnection(profile("Unsaved"));
         QCOMPARE(store.connections().size(), 1);
@@ -84,7 +92,8 @@ private slots:
         QVERIFY(store.save());
         QCOMPARE(ConnectionStore().connections().size(), 1);
     }
-    void updatesByIdAndPreservesOtherProfiles() {
+    void updatesByIdAndPreservesOtherProfiles()
+    {
         auto first = profile("First");
         auto second = profile("Second");
         ConnectionStore store;
@@ -105,7 +114,8 @@ private slots:
         compareProfiles(loaded.connections().at(0), updated);
         compareProfiles(loaded.connections().at(1), second);
     }
-    void unknownIdDoesNotModifyStore() {
+    void unknownIdDoesNotModifyStore()
+    {
         auto original = profile("Original");
         ConnectionStore store;
         store.addConnection(original);
@@ -113,7 +123,8 @@ private slots:
         QCOMPARE(store.connections().size(), 1);
         compareProfiles(store.connections().first(), original);
     }
-    void removalPersistsWithoutResurrectingOldEntries() {
+    void removalPersistsWithoutResurrectingOldEntries()
+    {
         auto first = profile("First");
         auto second = profile("Second");
         auto third = profile("Third");
@@ -133,13 +144,15 @@ private slots:
         QVERIFY(loaded.save());
         QVERIFY(ConnectionStore().connections().isEmpty());
     }
-    void invalidRemovalIndex_data() {
+    void invalidRemovalIndex_data()
+    {
         QTest::addColumn<int>("index");
         QTest::newRow("negative") << -1;
         QTest::newRow("past-last") << 1;
         QTest::newRow("large") << 100;
     }
-    void invalidRemovalIndex() {
+    void invalidRemovalIndex()
+    {
         QFETCH(int, index);
         auto original = profile("Original");
         ConnectionStore store;
@@ -149,7 +162,8 @@ private slots:
         QCOMPARE(store.connections().size(), 1);
         compareProfiles(store.connections().first(), original);
     }
-    void portValidation_data() {
+    void portValidation_data()
+    {
         QTest::addColumn<QVariant>("stored");
         QTest::addColumn<quint16>("expected");
         QTest::newRow("missing") << QVariant{} << quint16(5432);
@@ -161,17 +175,20 @@ private slots:
         QTest::newRow("maximum") << QVariant(65535) << quint16(65535);
         QTest::newRow("numeric-string") << QVariant("15432") << quint16(15432);
     }
-    void portValidation() {
+    void portValidation()
+    {
         QFETCH(QVariant, stored);
         QFETCH(quint16, expected);
-        QVariantMap values{{"name", "Port test"}};
-        if (stored.isValid()) values.insert("port", stored);
+        QVariantMap values{ { "name", "Port test" } };
+        if (stored.isValid())
+            values.insert("port", stored);
         writeSettings(values);
         ConnectionStore store;
         QCOMPARE(store.connections().size(), 1);
         QCOMPARE(store.connections().first().port, expected);
     }
-    void missingFieldsUseDefaults() {
+    void missingFieldsUseDefaults()
+    {
         writeSettings({});
         ConnectionStore store;
         QCOMPARE(store.connections().size(), 1);
@@ -184,16 +201,19 @@ private slots:
         QCOMPARE(loaded.port, quint16(5432));
         QVERIFY(!loaded.savePassword);
     }
-    void invalidIdIsReplacedAndPersisted_data() {
+    void invalidIdIsReplacedAndPersisted_data()
+    {
         QTest::addColumn<QVariant>("storedId");
         QTest::newRow("missing") << QVariant{};
         QTest::newRow("malformed") << QVariant("not-a-uuid");
         QTest::newRow("null") << QVariant(QUuid{});
     }
-    void invalidIdIsReplacedAndPersisted() {
+    void invalidIdIsReplacedAndPersisted()
+    {
         QFETCH(QVariant, storedId);
         QVariantMap values;
-        if (storedId.isValid()) values.insert("id", storedId);
+        if (storedId.isValid())
+            values.insert("id", storedId);
         writeSettings(values);
         ConnectionStore store;
         QCOMPARE(store.connections().size(), 1);

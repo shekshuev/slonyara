@@ -32,38 +32,21 @@ cmake --build <build-dir>
 ctest --test-dir <build-dir> --output-on-failure -L slonyara
 ```
 
-The controller tests use fake sessions and password storage, so PostgreSQL and
-system Keychain access are not needed at runtime. They run with the Qt
-`offscreen` platform and isolated temporary settings.
+Fast tests use temporary settings and fake Keychain/DB operations; PostgreSQL integration setup is in [tests/README.md](tests/README.md).
 
-The `slonyara` label runs all project tests, excluding vendored library tests.
-ConnectionStore tests use isolated temporary INI settings and need no GUI.
+## Checks
 
-PostgreSQL worker integration tests are optional: see [tests/README.md](tests/README.md)
-for setup, environment variables, and CI requirements.
+Use clang-format 18.1.8, clang-tidy 18 and Clazy; configure analysis builds with `-DCMAKE_EXPORT_COMPILE_COMMANDS=ON` and build before running analysis.
 
-StatusDetailsDialog tests run offscreen and cover literal text, read-only details,
-clipboard copying, dismissal, parent centering, and opening from StatusCard.
+- Formatting: run `python3 tools/format.py --check` to check, or `python3 tools/format.py` to apply the project's Qt style.
+- C++ lint: run `python3 tools/lint.py <build-dir> --checks=-clang-analyzer-*`.
+- Qt lint: run `python3 tools/lint.py <build-dir> --tool clazy`.
+- SAST: run `python3 tools/lint.py <build-dir> --checks='-*,clang-analyzer-*,-clang-analyzer-optin.*'`.
+- Compiler warnings: configure with `-DSLONYARA_WARNINGS_AS_ERRORS=ON` and run `cmake --build <build-dir>`.
+- Tests: run `ctest --test-dir <build-dir> --output-on-failure -L slonyara`, adding `-LE integration` for fast tests only.
+- ASan/UBSan: configure a separate application build with `-DSLONYARA_BUILD_TESTS=ON -DSLONYARA_SANITIZER=address-undefined`, then build and run `ctest --test-dir <asan-build> --output-on-failure -L slonyara`.
+- TSan (Clang): run `cmake -S tests/sanitizers -B build/tsan -DSLONYARA_CORE_SANITIZER=thread`, then `cmake --build build/tsan` and `ctest --test-dir build/tsan --output-on-failure`.
+- MSan (Linux, Clang 18): run `bash tools/build-msan-libcxx.sh build/msan-libcxx`, configure with `cmake -S tests/sanitizers -B build/msan -DCMAKE_CXX_COMPILER=clang++-18 -DSLONYARA_CORE_SANITIZER=memory -DSLONYARA_MSAN_LIBCXX="$PWD/build/msan-libcxx/prefix"`, then `cmake --build build/msan` and `ctest --test-dir build/msan --output-on-failure`.
 
-ConnectionDialog tests use fake Keychain operations and controllable futures for
-connection checks; no real passwords are stored and no DB connections are made.
+TSan/MSan cover the production encoding/cancellation core without Qt; disable Qt Creator's **Use custom settings** to honor `.clang-format`.
 
-IntroWindow tests cover filtering, profile activation, busy/error states, and
-create/edit flows with temporary settings and password saving disabled.
-
-## Continuous integration
-
-[GitHub Actions](.github/workflows/ci.yml) runs on pull requests and pushes to
-`main`. Linux (Qt 6.9.3) builds the application and runs all project tests against
-PostgreSQL 16. macOS and Windows build their native implementations and run the
-fast tests. Windows uses a consistent MSYS2 MinGW UCRT64 toolchain with Qt 6 and
-PostgreSQL client libraries from the same rolling package repository; unlike the
-Linux/macOS Qt 6.9.3 jobs, the Windows Qt version follows MSYS2 updates.
-CTest JUnit reports and logs are uploaded as artifacts even on test failure.
-No repository secrets or access to personal Keychain entries are needed.
-
-Suggested next checks: compiler warnings on project targets, clang-tidy with
-Clazy for Qt-specific diagnostics, then ASan/UBSan and coverage. For formatting,
-first commit a `.clang-format` matching Qt Creator and pin the formatter version;
-then use the same config in the editor and a CI `--dry-run --Werror` check for
-`src/` and `tests/`. Vendored and generated sources should be excluded.

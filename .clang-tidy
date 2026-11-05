@@ -1,0 +1,16 @@
+# Start with correctness checks; keep stylistic rewrites in clang-format.
+Checks: >-
+  -*,
+  clang-analyzer-*,
+  -clang-analyzer-optin.*,
+  bugprone-dangling-handle,
+  bugprone-sizeof-expression,
+  bugprone-suspicious-semicolon,
+  bugprone-unused-raii,
+  bugprone-use-after-move,
+  modernize-use-override,
+  performance-move-const-arg,
+  performance-unnecessary-copy-initialization
+WarningsAsErrors: '*'
+HeaderFilterRegex: '(^|/)(src|tests)/'
+FormatStyle: file

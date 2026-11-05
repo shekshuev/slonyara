@@ -13,6 +13,8 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+include(cmake/Sanitizers.cmake)
+
 set(SKIP_BUILD_TEST ON)
 if(WIN32)
     set(BUILD_SHARED_LIBS ON)
@@ -53,6 +55,7 @@ if(NOT APPLE)
 endif()
 
 qt_standard_project_setup()
+include(cmake/ProjectWarnings.cmake)
 
 list(REMOVE_ITEM SLONYARA_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp")
 add_library(SlonyaraCore STATIC ${SLONYARA_SOURCES})
@@ -60,6 +63,8 @@ target_include_directories(SlonyaraCore PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src"
 
 qt_add_executable(Slonyara WIN32 MACOSX_BUNDLE src/main.cpp)
 target_link_libraries(Slonyara PRIVATE SlonyaraCore)
+slonyara_project_warnings(SlonyaraCore)
+slonyara_project_warnings(Slonyara)
 
 target_include_directories(Slonyara PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/src/generated")
 

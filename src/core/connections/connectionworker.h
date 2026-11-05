@@ -2,8 +2,7 @@
 
 #include "connectionprofile.h"
 #include <QThread>
-#include <QMutex>
-#include <QWaitCondition>
+#include "connectionstopstate.h"
 
 class ConnectionWorker final : public QThread
 {
@@ -15,11 +14,10 @@ public:
 signals:
     void opened();
     void failed(const QString &details);
+
 private:
     void run() override;
     ConnectionProfile m_profile;
     QString m_password;
-    QMutex m_mutex;
-    QWaitCondition m_stopped;
+    ConnectionStopState m_stop;
 };
-

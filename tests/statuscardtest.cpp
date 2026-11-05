@@ -9,13 +9,15 @@ class StatusCardTest final : public QObject
 {
     Q_OBJECT
 private slots:
-    void startsHidden() {
+    void startsHidden()
+    {
         QWidget parent;
         StatusCard card(&parent);
         parent.show();
         QVERIFY(card.isHidden());
     }
-    void showsMessageAsPlainText() {
+    void showsMessageAsPlainText()
+    {
         QWidget parent;
         StatusCard card(&parent);
         parent.show();
@@ -27,7 +29,8 @@ private slots:
         QCOMPARE(label->text(), message);
         QCOMPARE(label->textFormat(), Qt::PlainText);
     }
-    void detailsActionTracksCurrentStatus() {
+    void detailsActionTracksCurrentStatus()
+    {
         QWidget parent;
         StatusCard card(&parent);
         parent.show();
@@ -41,7 +44,8 @@ private slots:
         QVERIFY(!details->isVisible());
         QCOMPARE(card.findChild<QLabel *>()->text(), QString("Connected"));
     }
-    void clearIsRepeatableAndCardCanBeReused() {
+    void clearIsRepeatableAndCardCanBeReused()
+    {
         QWidget parent;
         StatusCard card(&parent);
         parent.show();
@@ -54,7 +58,8 @@ private slots:
         QCOMPARE(card.findChild<QLabel *>()->text(), QString("Ready"));
         QVERIFY(!card.findChild<QPushButton *>()->isVisible());
     }
-    void clearingReservesLayoutSpace() {
+    void clearingReservesLayoutSpace()
+    {
         QWidget parent;
         auto *layout = new QVBoxLayout(&parent);
         auto *card = new StatusCard(&parent);

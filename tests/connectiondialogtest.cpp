@@ -11,6 +11,7 @@
 #include <QSignalSpy>
 #include <QTest>
 #include <memory>
+#include <utility>
 
 class ConnectionDialogTest final : public QObject
 {
@@ -32,7 +33,8 @@ private:
     QCheckBox *savePassword() const { return m_dialog->findChild<QCheckBox *>(); }
     QDialogButtonBox *buttons() const { return m_dialog->findChild<QDialogButtonBox *>(); }
     QPushButton *save() const { return buttons()->button(QDialogButtonBox::Save); }
-    QPushButton *check() const {
+    QPushButton *check() const
+    {
         for (auto *button : buttons()->buttons())
             if (buttons()->buttonRole(button) == QDialogButtonBox::ActionRole)
                 return qobject_cast<QPushButton *>(button);
@@ -40,19 +42,22 @@ private:
     }
     StatusCard *card() const { return m_dialog->findChild<StatusCard *>(); }
     QString status() const { return card()->findChild<QLabel *>()->text(); }
-    void respond(ConnectionSecrets::Result result) {
+    void respond(ConnectionSecrets::Result result)
+    {
         QVERIFY(bool(m_secretResult));
-        auto callback = std::move(m_secretResult);
+        auto callback = std::exchange(m_secretResult, {});
         callback(result);
     }
-    void create(const ConnectionProfile *profile = nullptr) {
+    void create(const ConnectionProfile *profile = nullptr)
+    {
         ConnectionDialog::Dependencies dependencies;
         dependencies.readPassword = [this](const QUuid &id, QObject *, auto callback) {
             m_operations << "read";
             m_secretId = id;
             m_secretResult = std::move(callback);
         };
-        dependencies.writePassword = [this](const QUuid &id, const QString &password, QObject *, auto callback) {
+        dependencies.writePassword = [this](const QUuid &id, const QString &password, QObject *,
+                                             auto callback) {
             m_operations << "write";
             m_secretId = id;
             m_writtenPassword = password;
@@ -63,7 +68,8 @@ private:
             m_secretId = id;
             m_secretResult = std::move(callback);
         };
-        dependencies.testConnection = [this](const ConnectionProfile &profile, const QString &password) {
+        dependencies.testConnection = [this](const ConnectionProfile &profile,
+                                              const QString &password) {
             ++m_checks;
             m_checkedProfile = profile;
             m_checkedPassword = password;
@@ -71,13 +77,15 @@ private:
             m_check->start();
             return m_check->future();
         };
-        m_dialog = std::make_unique<ConnectionDialog>(m_parent.get(), profile, std::move(dependencies));
+        m_dialog = std::make_unique<ConnectionDialog>(
+                m_parent.get(), profile, std::move(dependencies));
         connect(m_dialog.get(), &ConnectionDialog::connectionSubmitted, this,
                 [this](const auto &profile) { m_submitted << profile; });
         m_dialog->show();
     }
     void fill() { field("connectionName")->setText("Test connection"); }
-    static ConnectionProfile existing(bool withPassword = false) {
+    static ConnectionProfile existing(bool withPassword = false)
+    {
         ConnectionProfile profile;
         profile.name = "Existing";
         profile.host = "example.test";
@@ -87,14 +95,16 @@ private:
         profile.savePassword = withPassword;
         return profile;
     }
-    void loadExistingPassword() {
-        QTRY_COMPARE(m_operations, QStringList{"read"});
-        respond({true, true, "old password", {}});
+    void loadExistingPassword()
+    {
+        QTRY_COMPARE(m_operations, QStringList{ "read" });
+        respond({ true, true, "old password", {} });
     }
 
 private slots:
     void initTestCase() { QApplication::setQuitOnLastWindowClosed(false); }
-    void init() {
+    void init()
+    {
         m_submitted.clear();
         m_operations.clear();
         m_secretResult = {};
@@ -103,14 +113,17 @@ private slots:
         m_parent->resize(800, 700);
         m_parent->show();
     }
-    void cleanup() {
+    void cleanup()
+    {
         m_dialog.reset();
         m_secretResult = {};
-        if (m_check && !m_check->future().isFinished()) m_check->finish();
+        if (m_check && !m_check->future().isFinished())
+            m_check->finish();
         m_check.reset();
         m_parent.reset();
     }
-    void defaultsAndPasswordMask() {
+    void defaultsAndPasswordMask()
+    {
         create();
         QVERIFY(field("connectionName")->text().isEmpty());
         QCOMPARE(field("connectionHost")->text(), QString("localhost"));
@@ -122,7 +135,8 @@ private slots:
         QCOMPARE(m_dialog->windowModality(), Qt::WindowModal);
         QVERIFY(m_operations.isEmpty());
     }
-    void editLoadsProfileAndPreservesId() {
+    void editLoadsProfileAndPreservesId()
+    {
         const auto original = existing();
         create(&original);
         QCOMPARE(field("connectionName")->text(), original.name);
@@ -138,10 +152,12 @@ private slots:
         QCOMPARE(m_submitted.first().host, original.host);
         QVERIFY(m_operations.isEmpty());
     }
-    void invalidForm_data() {
+    void invalidForm_data()
+    {
         QTest::addColumn<QString>("name");
         QTest::addColumn<QString>("value");
-        for (const auto *name : {"connectionName", "connectionHost", "connectionDatabase", "connectionUser"}) {
+        for (const auto *name :
+                { "connectionName", "connectionHost", "connectionDatabase", "connectionUser" }) {
             QTest::newRow(name) << QString(name) << "   ";
         }
         QTest::newRow("empty-port") << "connectionPort" << "";
@@ -150,10 +166,12 @@ private slots:
         QTest::newRow("overflow-port") << "connectionPort" << "65536";
         QTest::newRow("nonnumeric-port") << "connectionPort" << "oops";
     }
-    void invalidForm() {
+    void invalidForm()
+    {
         QFETCH(QString, name);
         QFETCH(QString, value);
-        create(); fill();
+        create();
+        fill();
         field(qPrintable(name))->setText(value);
         QTest::mouseClick(save(), Qt::LeftButton);
         QTest::mouseClick(check(), Qt::LeftButton);
@@ -162,7 +180,8 @@ private slots:
         QVERIFY(m_operations.isEmpty());
         QVERIFY(m_dialog->isVisible());
     }
-    void trimsFieldsAndAcceptsOnlyAfterSaveConfirmation() {
+    void trimsFieldsAndAcceptsOnlyAfterSaveConfirmation()
+    {
         create();
         field("connectionName")->setText("  Test  ");
         field("connectionHost")->setText("  localhost  ");
@@ -189,30 +208,39 @@ private slots:
         QCOMPARE(accepted.count(), 1);
         QVERIFY(!m_dialog->isVisible());
     }
-    void enterSubmitsOnce() {
-        create(); fill();
+    void enterSubmitsOnce()
+    {
+        create();
+        fill();
         QTest::keyClick(field("connectionName"), Qt::Key_Return);
         QCOMPARE(m_submitted.size(), 1);
         QTest::keyClick(field("connectionName"), Qt::Key_Return);
         QCOMPARE(m_submitted.size(), 1);
     }
-    void cancelAndEscapeDoNotSubmit_data() {
+    void cancelAndEscapeDoNotSubmit_data()
+    {
         QTest::addColumn<bool>("escape");
         QTest::newRow("button") << false;
         QTest::newRow("escape") << true;
     }
-    void cancelAndEscapeDoNotSubmit() {
+    void cancelAndEscapeDoNotSubmit()
+    {
         QFETCH(bool, escape);
-        create(); fill();
+        create();
+        fill();
         QSignalSpy rejected(m_dialog.get(), &QDialog::rejected);
-        if (escape) QTest::keyClick(m_dialog.get(), Qt::Key_Escape);
-        else QTest::mouseClick(buttons()->button(QDialogButtonBox::Cancel), Qt::LeftButton);
+        if (escape)
+            QTest::keyClick(m_dialog.get(), Qt::Key_Escape);
+        else
+            QTest::mouseClick(buttons()->button(QDialogButtonBox::Cancel), Qt::LeftButton);
         QCOMPARE(rejected.count(), 1);
         QVERIFY(m_submitted.isEmpty());
         QVERIFY(m_operations.isEmpty());
     }
-    void saveFailureAllowsRetryWithSameId() {
-        create(); fill();
+    void saveFailureAllowsRetryWithSameId()
+    {
+        create();
+        fill();
         QTest::mouseClick(save(), Qt::LeftButton);
         const auto id = m_submitted.first().id;
         m_dialog->completeSave(false);
@@ -225,34 +253,40 @@ private slots:
         QCOMPARE(m_submitted.size(), 2);
         QCOMPARE(m_submitted.last().id, id);
     }
-    void checkedEmptyPasswordIsNotStored() {
-        create(); fill();
+    void checkedEmptyPasswordIsNotStored()
+    {
+        create();
+        fill();
         savePassword()->setChecked(true);
         QTest::mouseClick(save(), Qt::LeftButton);
         QCOMPARE(m_submitted.size(), 1);
         QVERIFY(!m_submitted.first().savePassword);
         QVERIFY(m_operations.isEmpty());
     }
-    void writesPasswordBeforeSubmitting() {
-        create(); fill();
+    void writesPasswordBeforeSubmitting()
+    {
+        create();
+        fill();
         field("connectionPassword")->setText("new password ' \\");
         savePassword()->setChecked(true);
         QTest::mouseClick(save(), Qt::LeftButton);
-        QCOMPARE(m_operations, QStringList{"write"});
+        QCOMPARE(m_operations, QStringList{ "write" });
         QCOMPARE(m_writtenPassword, QString("new password ' \\"));
         QVERIFY(m_submitted.isEmpty());
         QVERIFY(!save()->isEnabled());
-        respond({true, true, {}, {}});
+        respond({ true, true, {}, {} });
         QCOMPARE(m_submitted.size(), 1);
         QVERIFY(m_submitted.first().savePassword);
         QCOMPARE(m_submitted.first().id, m_secretId);
     }
-    void passwordWriteFailureCanFallBackToUnsavedPassword() {
-        create(); fill();
+    void passwordWriteFailureCanFallBackToUnsavedPassword()
+    {
+        create();
+        fill();
         field("connectionPassword")->setText("secret");
         savePassword()->setChecked(true);
         QTest::mouseClick(save(), Qt::LeftButton);
-        respond({false, false, {}, "Keychain unavailable"});
+        respond({ false, false, {}, "Keychain unavailable" });
         QVERIFY(m_submitted.isEmpty());
         QVERIFY(card()->isVisible());
         QCOMPARE(status(), QString("Could not save password."));
@@ -261,9 +295,10 @@ private slots:
         QTest::mouseClick(save(), Qt::LeftButton);
         QCOMPARE(m_submitted.size(), 1);
         QVERIFY(!m_submitted.first().savePassword);
-        QCOMPARE(m_operations, QStringList{"write"});
+        QCOMPARE(m_operations, QStringList{ "write" });
     }
-    void loadsExistingPasswordAndAvoidsUnnecessaryWrite() {
+    void loadsExistingPasswordAndAvoidsUnnecessaryWrite()
+    {
         auto original = existing(true);
         create(&original);
         loadExistingPassword();
@@ -272,32 +307,35 @@ private slots:
         QVERIFY(savePassword()->isChecked());
         QTest::mouseClick(save(), Qt::LeftButton);
         QCOMPARE(m_submitted.size(), 1);
-        QCOMPARE(m_operations, QStringList{"read"});
+        QCOMPARE(m_operations, QStringList{ "read" });
     }
-    void missingSavedPasswordClearsCheckbox() {
+    void missingSavedPasswordClearsCheckbox()
+    {
         auto original = existing(true);
         create(&original);
-        QTRY_COMPARE(m_operations, QStringList{"read"});
-        respond({true, false, {}, {}});
+        QTRY_COMPARE(m_operations, QStringList{ "read" });
+        respond({ true, false, {}, {} });
         QVERIFY(!savePassword()->isChecked());
         QVERIFY(field("connectionPassword")->text().isEmpty());
         QVERIFY(!card()->isVisible());
     }
-    void failedReadRetriesBeforeSaving() {
+    void failedReadRetriesBeforeSaving()
+    {
         auto original = existing(true);
         create(&original);
-        QTRY_COMPARE(m_operations, QStringList{"read"});
-        respond({false, false, {}, "Denied"});
+        QTRY_COMPARE(m_operations, QStringList{ "read" });
+        respond({ false, false, {}, "Denied" });
         QCOMPARE(status(), QString("Could not load password."));
         QTest::mouseClick(save(), Qt::LeftButton);
-        QCOMPARE(m_operations, (QStringList{"read", "read"}));
+        QCOMPARE(m_operations, (QStringList{ "read", "read" }));
         QVERIFY(m_submitted.isEmpty());
-        respond({true, true, "old password", {}});
+        respond({ true, true, "old password", {} });
         QTest::mouseClick(save(), Qt::LeftButton);
         QCOMPARE(m_submitted.size(), 1);
         QCOMPARE(m_operations.size(), 2);
     }
-    void disablingPasswordRemovesExistingSecret() {
+    void disablingPasswordRemovesExistingSecret()
+    {
         auto original = existing(true);
         create(&original);
         loadExistingPassword();
@@ -305,47 +343,55 @@ private slots:
         QTest::mouseClick(save(), Qt::LeftButton);
         QCOMPARE(m_operations.last(), QString("remove"));
         QVERIFY(m_submitted.isEmpty());
-        respond({true, false, {}, {}});
+        respond({ true, false, {}, {} });
         QCOMPARE(m_submitted.size(), 1);
         QVERIFY(!m_submitted.first().savePassword);
     }
-    void saveFailureRollsBackSecret_data() {
+    void saveFailureRollsBackSecret_data()
+    {
         QTest::addColumn<bool>("hadPassword");
         QTest::addColumn<bool>("rollbackSuccess");
         QTest::newRow("remove-new-secret") << false << true;
         QTest::newRow("restore-old-secret") << true << true;
         QTest::newRow("rollback-failure") << true << false;
     }
-    void saveFailureRollsBackSecret() {
+    void saveFailureRollsBackSecret()
+    {
         QFETCH(bool, hadPassword);
         QFETCH(bool, rollbackSuccess);
         auto original = existing(hadPassword);
         create(&original);
-        if (hadPassword) loadExistingPassword();
+        if (hadPassword)
+            loadExistingPassword();
         field("connectionPassword")->setText("replacement");
         savePassword()->setChecked(true);
         QTest::mouseClick(save(), Qt::LeftButton);
         QCOMPARE(m_operations.last(), QString("write"));
-        respond({true, true, {}, {}});
+        respond({ true, true, {}, {} });
         QCOMPARE(m_submitted.size(), 1);
         m_dialog->completeSave(false);
         QCOMPARE(m_operations.last(), hadPassword ? QString("write") : QString("remove"));
-        if (hadPassword) QCOMPARE(m_writtenPassword, QString("old password"));
+        if (hadPassword)
+            QCOMPARE(m_writtenPassword, QString("old password"));
         QCOMPARE(m_secretId, original.id);
-        respond({rollbackSuccess, hadPassword, {}, "Restore failed"});
+        respond({ rollbackSuccess, hadPassword, {}, "Restore failed" });
         QVERIFY(save()->isEnabled());
-        QCOMPARE(status(), rollbackSuccess ? QString("Could not save connection.")
-                                          : QString("Could not restore password."));
+        QCOMPARE(status(),
+                rollbackSuccess ? QString("Could not save connection.")
+                                : QString("Could not restore password."));
         QVERIFY(m_dialog->isVisible());
     }
-    void testConnectionResults_data() {
+    void testConnectionResults_data()
+    {
         QTest::addColumn<bool>("success");
         QTest::newRow("success") << true;
         QTest::newRow("failure") << false;
     }
-    void testConnectionResults() {
+    void testConnectionResults()
+    {
         QFETCH(bool, success);
-        create(); fill();
+        create();
+        fill();
         field("connectionPassword")->setText("test password");
         QTest::mouseClick(check(), Qt::LeftButton);
         QCOMPARE(m_checks, 1);
@@ -355,31 +401,36 @@ private slots:
         QVERIFY(!check()->isEnabled());
         QVERIFY(m_submitted.isEmpty());
         QCOMPARE(status(), QString("Testing connection…"));
-        m_check->addResult({success, "Connection refused"});
+        m_check->addResult({ success, "Connection refused" });
         m_check->finish();
         QTRY_VERIFY(check()->isEnabled());
         QVERIFY(save()->isEnabled());
-        QCOMPARE(status(), success ? QString("Connection successful.") : QString("Could not connect."));
+        QCOMPARE(status(),
+                success ? QString("Connection successful.") : QString("Could not connect."));
         QVERIFY(m_submitted.isEmpty());
         QVERIFY(m_operations.isEmpty());
     }
-    void editedFormIgnoresOldTestResult() {
-        create(); fill();
+    void editedFormIgnoresOldTestResult()
+    {
+        create();
+        fill();
         QTest::mouseClick(check(), Qt::LeftButton);
         field("connectionHost")->setText("changed.example.test");
         QVERIFY(!card()->isVisible());
-        m_check->addResult({false, "Old error"});
+        m_check->addResult({ false, "Old error" });
         m_check->finish();
         QTRY_VERIFY(check()->isEnabled());
         QVERIFY(!card()->isVisible());
     }
-    void canCloseWhileTestingAndFinishSafely() {
-        create(); fill();
+    void canCloseWhileTestingAndFinishSafely()
+    {
+        create();
+        fill();
         QTest::mouseClick(check(), Qt::LeftButton);
         QTest::keyClick(m_dialog.get(), Qt::Key_Escape);
         QVERIFY(!m_dialog->isVisible());
         m_dialog.reset();
-        m_check->addResult({true, {}});
+        m_check->addResult({ true, {} });
         m_check->finish();
         QCoreApplication::processEvents();
         QVERIFY(m_submitted.isEmpty());

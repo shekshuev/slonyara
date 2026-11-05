@@ -17,9 +17,12 @@ class ApplicationController final : public QObject
     Q_OBJECT
 
 public:
-    struct Dependencies {
+    struct Dependencies
+    {
         std::function<void(const QUuid &, QObject *, ConnectionSecrets::Callback)> readPassword;
-        std::function<std::unique_ptr<ConnectionSession>(const ConnectionProfile &, const QString &)> createSession;
+        std::function<std::unique_ptr<ConnectionSession>(
+                const ConnectionProfile &, const QString &)>
+                createSession;
     };
 
     explicit ApplicationController(QObject *parent = nullptr);

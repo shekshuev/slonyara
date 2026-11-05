@@ -13,8 +13,67 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  format:
+    name: Format / clang-format 18
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install formatter
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-venv
+          python3 -m venv build/format-tools
+          build/format-tools/bin/pip install clang-format==18.1.8
+      - name: Check formatting
+        run: python3 tools/format.py --check --clang-format build/format-tools/bin/clang-format
+
+  static-analysis:
+    name: C++ and Qt static analysis
+    needs: format
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - name: Install analysis and build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-18 clang-tidy-18 clazy ninja-build pkg-config libpq-dev libsecret-1-dev libgl1-mesa-dev libxkbcommon-x11-0 libxcb-cursor0
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.9.3'
+          cache: true
+      - name: Configure
+        run: >-
+          cmake -S . -B build/analysis -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_CXX_COMPILER=clang++-18
+          -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+          -DBUILD_TESTING=OFF
+          -DSLONYARA_WARNINGS_AS_ERRORS=ON
+          -DSLONYARA_BUILD_TESTS=ON
+          -DSLONYARA_BUILD_INTEGRATION_TESTS=ON
+      - name: Build for analysis
+        run: cmake --build build/analysis --parallel 2
+      - name: Lint C++
+        run: python3 tools/lint.py build/analysis --tool clang-tidy --checks=-clang-analyzer-* --jobs 2 2>&1 | tee build/analysis/clang-tidy.log
+      - name: Analyze Qt usage
+        run: python3 tools/lint.py build/analysis --tool clazy --jobs 2 2>&1 | tee build/analysis/clazy.log
+      - name: Static application security analysis
+        run: python3 tools/lint.py build/analysis --tool clang-tidy --checks='-*,clang-analyzer-*,-clang-analyzer-optin.*' --jobs 2 2>&1 | tee build/analysis/sast.log
+      - name: Upload analysis logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: static-analysis-logs
+          path: build/analysis/*.log
+          if-no-files-found: ignore
+
   linux-tests:
     name: Linux / Qt 6.9 / PostgreSQL 16
+    needs: static-analysis
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     services:
@@ -73,6 +132,7 @@ jobs:
 
   macos-tests:
     name: macOS / Qt 6.9
+    needs: static-analysis
     runs-on: macos-15
     timeout-minutes: 25
     steps:
@@ -109,6 +169,7 @@ jobs:
 
   windows-tests:
     name: Windows / MinGW UCRT64 / Qt 6
+    needs: static-analysis
     runs-on: windows-2022
     timeout-minutes: 30
     defaults:
@@ -159,4 +220,150 @@ jobs:
           path: |
             build/ci/test-results.xml
             build/ci/Testing/Temporary/LastTest.log
+          if-no-files-found: ignore
+
+  address-undefined-tests:
+    name: ASan + UBSan / PostgreSQL 16
+    needs: [linux-tests, macos-tests, windows-tests]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-test-password
+          POSTGRES_DB: postgres
+          POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      SLONYARA_TEST_PG_HOST: 127.0.0.1
+      SLONYARA_TEST_PG_PORT: '5432'
+      SLONYARA_TEST_PG_USER: postgres
+      SLONYARA_TEST_PG_PASSWORD: ci-test-password
+      SLONYARA_TEST_PG_DATABASE: postgres
+      ASAN_OPTIONS: halt_on_error=1:detect_leaks=1
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-18 llvm-18 ninja-build pkg-config libpq-dev libsecret-1-dev libgl1-mesa-dev libxkbcommon-x11-0 libxcb-cursor0
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.9.3'
+          cache: true
+      - name: Configure
+        run: >-
+          cmake -S . -B build/sanitizers -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_CXX_COMPILER=clang++-18
+          -DBUILD_TESTING=OFF
+          -DSLONYARA_SANITIZER=address-undefined
+          -DSLONYARA_BUILD_TESTS=ON
+          -DSLONYARA_BUILD_INTEGRATION_TESTS=ON
+      - name: Build
+        run: cmake --build build/sanitizers --parallel 2
+      - name: Run instrumented tests
+        run: |
+          export ASAN_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer-18
+          ctest --test-dir build/sanitizers --output-on-failure --output-junit test-results.xml -L slonyara --timeout 180
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: address-undefined-results
+          path: |
+            build/sanitizers/test-results.xml
+            build/sanitizers/Testing/Temporary/LastTest.log
+          if-no-files-found: ignore
+
+  thread-tests:
+    name: TSan / dependency-free core
+    needs: [linux-tests, macos-tests, windows-tests]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      TSAN_OPTIONS: halt_on_error=1:exitcode=66:second_deadlock_stack=1
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-18 llvm-18 ninja-build
+          sudo sysctl vm.mmap_rnd_bits=28
+      - name: Configure
+        run: >-
+          cmake -S tests/sanitizers -B build/tsan -G Ninja
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          -DCMAKE_CXX_COMPILER=clang++-18
+          -DSLONYARA_CORE_SANITIZER=thread
+      - name: Build
+        run: cmake --build build/tsan --parallel 2
+      - name: Run thread checks
+        run: |
+          export TSAN_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer-18
+          ctest --test-dir build/tsan --output-on-failure --output-junit test-results.xml
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: thread-sanitizer-results
+          path: |
+            build/tsan/test-results.xml
+            build/tsan/Testing/Temporary/LastTest.log
+          if-no-files-found: ignore
+
+  memory-tests:
+    name: MSan / dependency-free core + instrumented libc++
+    needs: [linux-tests, macos-tests, windows-tests]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      MSAN_OPTIONS: halt_on_error=1:exit_code=86
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-18 llvm-18 ninja-build
+          sudo sysctl vm.mmap_rnd_bits=28
+      - uses: actions/cache@v4
+        id: libcxx-cache
+        with:
+          path: build/msan-libcxx/prefix
+          key: msan-libcxx-ubuntu24-${{ runner.arch }}-18.1.8-${{ hashFiles('tools/build-msan-libcxx.sh') }}
+      - name: Build instrumented standard library
+        if: steps.libcxx-cache.outputs.cache-hit != 'true'
+        run: bash tools/build-msan-libcxx.sh build/msan-libcxx
+      - name: Configure
+        run: >-
+          cmake -S tests/sanitizers -B build/msan -G Ninja
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          -DCMAKE_CXX_COMPILER=clang++-18
+          -DSLONYARA_CORE_SANITIZER=memory
+          -DSLONYARA_MSAN_LIBCXX="${{ github.workspace }}/build/msan-libcxx/prefix"
+      - name: Build
+        run: cmake --build build/msan --parallel 2
+      - name: Run memory checks
+        run: |
+          export MSAN_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer-18
+          ctest --test-dir build/msan --output-on-failure --output-junit test-results.xml
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: memory-sanitizer-results
+          path: |
+            build/msan/test-results.xml
+            build/msan/Testing/Temporary/LastTest.log
           if-no-files-found: ignore

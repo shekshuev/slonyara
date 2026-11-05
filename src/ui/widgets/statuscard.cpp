@@ -33,8 +33,7 @@ StatusCard::StatusCard(QWidget *parent) : QFrame(parent)
     clear();
 }
 
-void StatusCard::setStatus(const QString &message, Theme::ColorRole role,
-                           const QString &details)
+void StatusCard::setStatus(const QString &message, Theme::ColorRole role, const QString &details)
 {
     m_message->setText(message);
     m_details = details;

@@ -24,8 +24,8 @@ void refreshStyle(QWidget *widget)
     if (auto *label = qobject_cast<QLabel *>(widget)) {
         const QString roleName = label->property("colorRole").toString();
         const auto role = roleName == "muted" ? Theme::ColorRole::Muted
-                         : roleName == "accent" ? Theme::ColorRole::Accent
-                                                : Theme::ColorRole::Primary;
+                : roleName == "accent"        ? Theme::ColorRole::Accent
+                                              : Theme::ColorRole::Primary;
         auto palette = label->palette();
         palette.setColor(QPalette::WindowText, Theme::color(role, label));
         label->setPalette(palette);
@@ -40,7 +40,9 @@ namespace Theme {
 QColor color(ColorRole role, const QWidget *widget)
 {
     bool isDark = (widget ? widget->palette() : QApplication::palette())
-                      .color(QPalette::Window).lightness() < 128;
+                          .color(QPalette::Window)
+                          .lightness()
+            < 128;
     for (const QWidget *ancestor = widget; ancestor; ancestor = ancestor->parentWidget()) {
         const QString theme = ancestor->property("theme").toString();
         if (!theme.isEmpty()) {
@@ -155,10 +157,13 @@ void applyFor(StatusCard *card, ColorRole role)
     QColor border = foreground;
     border.setAlpha(85);
     card->setStyleSheet(QStringLiteral(
-        "QFrame#statusCard { background-color: %1; border: 1px solid %2; border-radius: 7px; }"
-        "QFrame#statusCard QLabel, QFrame#statusCard QPushButton { color: %3; background: transparent; }"
-        "QFrame#statusCard QPushButton { border: none; padding: 2px 0; text-decoration: underline; }")
-        .arg(background.name(QColor::HexArgb), border.name(QColor::HexArgb), foreground.name()));
+            "QFrame#statusCard { background-color: %1; border: 1px solid %2; border-radius: 7px; }"
+            "QFrame#statusCard QLabel, QFrame#statusCard QPushButton { color: %3; background: "
+            "transparent; }"
+            "QFrame#statusCard QPushButton { border: none; padding: 2px 0; text-decoration: "
+            "underline; }")
+                                .arg(background.name(QColor::HexArgb), border.name(QColor::HexArgb),
+                                        foreground.name()));
 }
 
 void setTheme(QWidget *mainWindow, bool isDark)

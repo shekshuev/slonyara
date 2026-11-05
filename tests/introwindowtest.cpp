@@ -29,30 +29,37 @@ private:
     QLineEdit *m_search = nullptr;
     QPushButton *m_connect = nullptr, *m_edit = nullptr, *m_create = nullptr, *m_cancel = nullptr;
 
-    QPushButton *button(const char *text) const {
+    QPushButton *button(const char *text) const
+    {
         for (auto *button : m_window->findChildren<QPushButton *>())
-            if (button->text() == IntroWindow::tr(text)) return button;
+            if (button->text() == IntroWindow::tr(text))
+                return button;
         return nullptr;
     }
-    void createWindow() {
+    void createWindow()
+    {
         m_window = std::make_unique<IntroWindow>();
         connect(m_window.get(), &IntroWindow::connectionRequested, this,
                 [this](const auto &profile) { m_requested << profile; });
         m_window->show();
         m_list = m_window->findChild<QListView *>();
         m_search = m_window->findChild<QLineEdit *>();
-        m_connect = button("Connect"); m_edit = button("Edit");
-        m_create = button("New Connection"); m_cancel = button("Cancel");
+        m_connect = button("Connect");
+        m_edit = button("Edit");
+        m_create = button("New Connection");
+        m_cancel = button("Cancel");
         QVERIFY(m_list && m_search && m_connect && m_edit && m_create && m_cancel);
     }
-    void selectRow(int row) {
+    void selectRow(int row)
+    {
         const auto index = m_list->model()->index(row, 0);
         QVERIFY(index.isValid());
         m_list->setCurrentIndex(index);
         m_list->scrollTo(index);
     }
     ConnectionDialog *editor() const { return m_window->findChild<ConnectionDialog *>(); }
-    void saveEditor() {
+    void saveEditor()
+    {
         QVERIFY(editor());
         auto *buttons = editor()->findChild<QDialogButtonBox *>();
         QVERIFY(buttons);
@@ -60,35 +67,45 @@ private:
     }
 
 private slots:
-    void initTestCase() {
+    void initTestCase()
+    {
         QApplication::setQuitOnLastWindowClosed(false);
         QCoreApplication::setOrganizationName("SlonyaraTests");
         QCoreApplication::setApplicationName("IntroWindowTest");
         QSettings::setDefaultFormat(QSettings::IniFormat);
     }
-    void init() {
+    void init()
+    {
         m_settings = std::make_unique<QTemporaryDir>();
         QVERIFY(m_settings->isValid());
         QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, m_settings->path());
         QSettings::setPath(QSettings::IniFormat, QSettings::SystemScope, m_settings->path());
         m_requested.clear();
         m_first = ConnectionProfile{};
-        m_first.name = "Local"; m_first.host = "localhost";
-        m_first.database = "app_dev"; m_first.user = "developer";
+        m_first.name = "Local";
+        m_first.host = "localhost";
+        m_first.database = "app_dev";
+        m_first.user = "developer";
         m_second = ConnectionProfile{};
-        m_second.name = "Reporting"; m_second.host = "analytics.example.test";
-        m_second.port = 15432; m_second.database = "warehouse"; m_second.user = "reader";
+        m_second.name = "Reporting";
+        m_second.host = "analytics.example.test";
+        m_second.port = 15432;
+        m_second.database = "warehouse";
+        m_second.user = "reader";
         ConnectionStore store;
-        store.addConnection(m_first); store.addConnection(m_second);
+        store.addConnection(m_first);
+        store.addConnection(m_second);
         QVERIFY(store.save());
         createWindow();
     }
-    void cleanup() {
+    void cleanup()
+    {
         m_window.reset();
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
         m_settings.reset();
     }
-    void loadsProfilesWithoutSelectingOne() {
+    void loadsProfilesWithoutSelectingOne()
+    {
         QCOMPARE(m_list->model()->rowCount(), 2);
         QCOMPARE(m_list->model()->index(0, 0).data().toString(), m_first.name);
         QCOMPARE(m_list->model()->index(1, 0).data().toString(), m_second.name);
@@ -98,22 +115,26 @@ private slots:
         QVERIFY(!m_cancel->isVisible());
         QVERIFY(m_requested.isEmpty());
     }
-    void emptyStoreShowsEmptyState() {
+    void emptyStoreShowsEmptyState()
+    {
         m_window.reset();
         QSettings settings;
-        settings.clear(); settings.sync();
+        settings.clear();
+        settings.sync();
         createWindow();
         QCOMPARE(m_list->model()->rowCount(), 0);
         QVERIFY(!m_list->isVisible());
         bool emptyLabelVisible = false;
         for (auto *label : m_window->findChildren<QLabel *>())
-            if (label->text() == IntroWindow::tr("No connections yet")) emptyLabelVisible = label->isVisible();
+            if (label->text() == IntroWindow::tr("No connections yet"))
+                emptyLabelVisible = label->isVisible();
         QVERIFY(emptyLabelVisible);
         QVERIFY(!m_connect->isEnabled());
         QVERIFY(!m_edit->isEnabled());
         QVERIFY(m_create->isEnabled());
     }
-    void searchMatchesProfileFields_data() {
+    void searchMatchesProfileFields_data()
+    {
         QTest::addColumn<QString>("query");
         QTest::newRow("name-case-insensitive") << "rEpOrTiNg";
         QTest::newRow("host") << "analytics.example";
@@ -121,7 +142,8 @@ private slots:
         QTest::newRow("database") << "warehouse";
         QTest::newRow("user") << "reader";
     }
-    void searchMatchesProfileFields() {
+    void searchMatchesProfileFields()
+    {
         QFETCH(QString, query);
         m_search->setText(query);
         QCOMPARE(m_list->model()->rowCount(), 1);
@@ -135,7 +157,8 @@ private slots:
         QCOMPARE(m_requested.first().database, m_second.database);
         QCOMPARE(m_requested.first().user, m_second.user);
     }
-    void searchWithoutMatchesAndClearing() {
+    void searchWithoutMatchesAndClearing()
+    {
         selectRow(0);
         m_search->setText("no-such-connection");
         QCOMPARE(m_list->model()->rowCount(), 0);
@@ -146,21 +169,26 @@ private slots:
         m_search->clear();
         QCOMPARE(m_list->model()->rowCount(), 2);
     }
-    void activation_data() {
+    void activation_data()
+    {
         QTest::addColumn<int>("method");
         QTest::newRow("connect-button") << 0;
         QTest::newRow("return") << 1;
         QTest::newRow("keypad-enter") << 2;
         QTest::newRow("double-click") << 3;
     }
-    void activation() {
+    void activation()
+    {
         QFETCH(int, method);
         selectRow(1);
         QVERIFY(m_connect->isEnabled());
         QVERIFY(m_edit->isEnabled());
-        if (method == 0) QTest::mouseClick(m_connect, Qt::LeftButton);
-        else if (method == 1) QTest::keyClick(m_list, Qt::Key_Return);
-        else if (method == 2) QTest::keyClick(m_list, Qt::Key_Enter);
+        if (method == 0)
+            QTest::mouseClick(m_connect, Qt::LeftButton);
+        else if (method == 1)
+            QTest::keyClick(m_list, Qt::Key_Return);
+        else if (method == 2)
+            QTest::keyClick(m_list, Qt::Key_Enter);
         else {
             const auto point = m_list->visualRect(m_list->currentIndex()).center();
             QTest::mouseClick(m_list->viewport(), Qt::LeftButton, Qt::NoModifier, point);
@@ -169,14 +197,16 @@ private slots:
         QCOMPARE(m_requested.size(), 1);
         QCOMPARE(m_requested.first().id, m_second.id);
     }
-    void singleClickOnlySelects() {
+    void singleClickOnlySelects()
+    {
         const auto index = m_list->model()->index(0, 0);
         QTest::mouseClick(m_list->viewport(), Qt::LeftButton, Qt::NoModifier,
-                          m_list->visualRect(index).center());
+                m_list->visualRect(index).center());
         QVERIFY(m_requested.isEmpty());
         QVERIFY(m_connect->isEnabled());
     }
-    void noActivationWithoutSelectionOrOnAutoRepeat() {
+    void noActivationWithoutSelectionOrOnAutoRepeat()
+    {
         QTest::keyClick(m_list, Qt::Key_Return);
         QVERIFY(m_requested.isEmpty());
         selectRow(0);
@@ -187,7 +217,8 @@ private slots:
         QVERIFY(!m_connect->isEnabled());
         QVERIFY(!m_edit->isEnabled());
     }
-    void connectingBlocksActionsAndEmitsCancellation() {
+    void connectingBlocksActionsAndEmitsCancellation()
+    {
         selectRow(1);
         m_window->setConnecting(true);
         QVERIFY(!m_connect->isEnabled());
@@ -209,7 +240,8 @@ private slots:
         QVERIFY(!m_cancel->isVisible());
         QCOMPARE(m_list->currentIndex().row(), 1);
     }
-    void errorPersistsUntilNextAttempt() {
+    void errorPersistsUntilNextAttempt()
+    {
         auto *card = m_window->findChild<StatusCard *>();
         QVERIFY(card);
         m_window->showConnectionError("Server refused connection");
@@ -220,7 +252,8 @@ private slots:
         m_window->setConnecting(true);
         QVERIFY(!card->isVisible());
     }
-    void createPersistsAndUpdatesList() {
+    void createPersistsAndUpdatesList()
+    {
         QTest::mouseClick(m_create, Qt::LeftButton);
         QVERIFY(editor());
         editor()->findChild<QLineEdit *>("connectionName")->setText("New profile");
@@ -234,7 +267,8 @@ private slots:
         QVERIFY(!loaded.connections().last().id.isNull());
         QVERIFY(m_list->isVisible());
     }
-    void editFilteredProfilePreservesIdAndSelection() {
+    void editFilteredProfilePreservesIdAndSelection()
+    {
         m_search->setText("Reporting");
         selectRow(0);
         QTest::mouseClick(m_edit, Qt::LeftButton);
@@ -255,12 +289,14 @@ private slots:
         QCOMPARE(m_requested.first().id, m_second.id);
         QCOMPARE(m_requested.first().name, QString("Reporting updated"));
     }
-    void cancelledDialogLeavesStoreUnchanged_data() {
+    void cancelledDialogLeavesStoreUnchanged_data()
+    {
         QTest::addColumn<bool>("edit");
         QTest::newRow("create") << false;
         QTest::newRow("edit") << true;
     }
-    void cancelledDialogLeavesStoreUnchanged() {
+    void cancelledDialogLeavesStoreUnchanged()
+    {
         QFETCH(bool, edit);
         selectRow(0);
         QTest::mouseClick(edit ? m_edit : m_create, Qt::LeftButton);
@@ -272,12 +308,14 @@ private slots:
         QCOMPARE(loaded.connections().size(), 2);
         QCOMPARE(loaded.connections().first().name, m_first.name);
     }
-    void failedSaveRollsBackAndCanBeRetried_data() {
+    void failedSaveRollsBackAndCanBeRetried_data()
+    {
         QTest::addColumn<bool>("edit");
         QTest::newRow("create") << false;
         QTest::newRow("edit") << true;
     }
-    void failedSaveRollsBackAndCanBeRetried() {
+    void failedSaveRollsBackAndCanBeRetried()
+    {
         QFETCH(bool, edit);
         selectRow(0);
         QTest::mouseClick(edit ? m_edit : m_create, Qt::LeftButton);
@@ -285,7 +323,8 @@ private slots:
         editor()->findChild<QLineEdit *>("connectionName")->setText("Retry profile");
         const auto blockedPath = m_settings->filePath("blocked");
         QFile blocker(blockedPath);
-        QVERIFY(blocker.open(QIODevice::WriteOnly)); blocker.close();
+        QVERIFY(blocker.open(QIODevice::WriteOnly));
+        blocker.close();
         QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, blockedPath);
         saveEditor();
         QVERIFY(editor()->isVisible());
@@ -298,7 +337,8 @@ private slots:
         ConnectionStore loaded;
         QCOMPARE(loaded.connections().size(), edit ? 2 : 3);
         QCOMPARE(loaded.connections().at(edit ? 0 : 2).name, QString("Retry profile"));
-        if (edit) QCOMPARE(loaded.connections().first().id, m_first.id);
+        if (edit)
+            QCOMPARE(loaded.connections().first().id, m_first.id);
     }
 };
 

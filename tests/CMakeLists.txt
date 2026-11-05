@@ -64,3 +64,12 @@ set_tests_properties(IntroWindow PROPERTIES
     LABELS "slonyara"
     TIMEOUT 30
 )
+
+foreach(test_target IN ITEMS
+        ApplicationControllerTest ConnectionStoreTest ConnectionTesterTest
+        ConnectionWorkerTest StatusDetailsDialogTest ConnectionDialogTest
+        StatusCardTest IntroWindowTest)
+    if(TARGET ${test_target})
+        slonyara_project_warnings(${test_target})
+    endif()
+endforeach()

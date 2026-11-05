@@ -23,7 +23,11 @@ public:
     void start() override { ++starts; }
     void stop() override { ++stops; }
     void succeed() { emit opened(); }
-    void fail(const QString &error) { emit failed(error); finish(); }
+    void fail(const QString &error)
+    {
+        emit failed(error);
+        finish();
+    }
     void finish()
     {
         QTimer::singleShot(0, this, [this] { emit finished(); });
@@ -44,22 +48,26 @@ private:
     QUuid m_requestedId;
     int m_created = 0;
 
-    MainWindow *mainWindow() const {
+    MainWindow *mainWindow() const
+    {
         for (auto *widget : QApplication::topLevelWidgets())
-            if (auto *window = qobject_cast<MainWindow *>(widget)) return window;
+            if (auto *window = qobject_cast<MainWindow *>(widget))
+                return window;
         return nullptr;
     }
     StatusCard *card() const { return m_intro->findChild<StatusCard *>(); }
     void request() { m_intro->connectionRequested(m_profile); }
-    void supplyPassword() {
+    void supplyPassword()
+    {
         QVERIFY(bool(m_passwordResult));
-        auto callback = std::move(m_passwordResult);
-        callback({true, true, QStringLiteral("secret"), {}});
+        auto callback = std::exchange(m_passwordResult, {});
+        callback({ true, true, QStringLiteral("secret"), {} });
     }
     bool errorVisible() const { return card() && card()->isVisible(); }
 
 private slots:
-    void initTestCase() {
+    void initTestCase()
+    {
         QVERIFY(m_settings.isValid());
         QCoreApplication::setOrganizationName("SlonyaraTests");
         QCoreApplication::setApplicationName("ApplicationControllerTest");
@@ -68,7 +76,8 @@ private slots:
         QStandardPaths::setTestModeEnabled(true);
         QApplication::setQuitOnLastWindowClosed(false);
     }
-    void init() {
+    void init()
+    {
         m_created = 0;
         m_password.clear();
         m_passwordResult = {};
@@ -80,7 +89,8 @@ private slots:
             m_requestedId = id;
             m_passwordResult = std::move(callback);
         };
-        dependencies.createSession = [this](const ConnectionProfile &profile, const QString &password) {
+        dependencies.createSession = [this](const ConnectionProfile &profile,
+                                             const QString &password) {
             ++m_created;
             m_password = password;
             auto session = std::make_unique<FakeSession>(profile);
@@ -90,22 +100,26 @@ private slots:
         m_controller = std::make_unique<ApplicationController>(std::move(dependencies));
         m_controller->start();
         for (auto *widget : QApplication::topLevelWidgets())
-            if (auto *intro = qobject_cast<IntroWindow *>(widget)) m_intro = intro;
+            if (auto *intro = qobject_cast<IntroWindow *>(widget))
+                m_intro = intro;
         QVERIFY(m_intro);
         QVERIFY(m_intro->isVisible());
     }
-    void cleanup() {
+    void cleanup()
+    {
         m_controller.reset();
         m_passwordResult = {};
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
         QVERIFY(!mainWindow());
         QVERIFY(!m_session);
     }
-    void startsWithIntroOnly() {
+    void startsWithIntroOnly()
+    {
         QVERIFY(!mainWindow());
         QCOMPARE(m_created, 0);
     }
-    void opensAfterSuccessAndMinimumDelay() {
+    void opensAfterSuccessAndMinimumDelay()
+    {
         request();
         QCOMPARE(m_requestedId, m_profile.id);
         QVERIFY(!mainWindow());
@@ -124,14 +138,16 @@ private slots:
         QVERIFY(!m_intro->isVisible());
         QVERIFY(m_session);
     }
-    void slowSuccessHasNoSecondMinimumDelay() {
+    void slowSuccessHasNoSecondMinimumDelay()
+    {
         request();
         supplyPassword();
         QTest::qWait(500);
         m_session->succeed();
         QTRY_VERIFY_WITH_TIMEOUT(mainWindow(), 200);
     }
-    void failureKeepsErrorVisibleAndAllowsRetry() {
+    void failureKeepsErrorVisibleAndAllowsRetry()
+    {
         request();
         supplyPassword();
         m_session->fail("authentication failed");
@@ -146,7 +162,8 @@ private slots:
         supplyPassword();
         QCOMPARE(m_created, 2);
     }
-    void duplicateRequestsCreateOneSession() {
+    void duplicateRequestsCreateOneSession()
+    {
         request();
         request();
         supplyPassword();
@@ -154,7 +171,8 @@ private slots:
         QCOMPARE(m_created, 1);
         QCOMPARE(m_session->starts, 1);
     }
-    void cancellationIgnoresLateSuccess() {
+    void cancellationIgnoresLateSuccess()
+    {
         request();
         supplyPassword();
         m_intro->connectionCancelled();
@@ -167,7 +185,8 @@ private slots:
         QVERIFY(!errorVisible());
         QVERIFY(m_intro->isVisible());
     }
-    void cancellationDuringTransitionPreventsOpening() {
+    void cancellationDuringTransitionPreventsOpening()
+    {
         request();
         supplyPassword();
         m_session->succeed();
@@ -177,27 +196,30 @@ private slots:
         QTest::qWait(500);
         QVERIFY(!mainWindow());
     }
-    void latePasswordResultCannotStartSession() {
+    void latePasswordResultCannotStartSession()
+    {
         request();
         auto oldCallback = std::move(m_passwordResult);
         m_intro->connectionCancelled();
         request();
-        oldCallback({true, true, "old secret", {}});
+        oldCallback({ true, true, "old secret", {} });
         QCOMPARE(m_created, 0);
         supplyPassword();
         QCOMPARE(m_created, 1);
         QCOMPARE(m_password, QString("secret"));
     }
-    void keychainErrorDoesNotStartSession() {
+    void keychainErrorDoesNotStartSession()
+    {
         request();
-        m_passwordResult({false, false, {}, "Keychain unavailable"});
+        m_passwordResult({ false, false, {}, "Keychain unavailable" });
         QTRY_VERIFY(errorVisible());
         QCOMPARE(m_created, 0);
         QVERIFY(!mainWindow());
     }
-    void missingPasswordCanBeEntered() {
+    void missingPasswordCanBeEntered()
+    {
         request();
-        m_passwordResult({true, false, {}, {}});
+        m_passwordResult({ true, false, {}, {} });
         auto *dialog = m_intro->findChild<QInputDialog *>();
         QVERIFY(dialog);
         dialog->setTextValue("entered secret");
@@ -205,7 +227,8 @@ private slots:
         QCOMPARE(m_password, QString("entered secret"));
         QCOMPARE(m_created, 1);
     }
-    void passwordDialogCancellationDoesNotStartSession() {
+    void passwordDialogCancellationDoesNotStartSession()
+    {
         m_profile.savePassword = false;
         request();
         auto *dialog = m_intro->findChild<QInputDialog *>();
@@ -215,7 +238,8 @@ private slots:
         QVERIFY(!mainWindow());
         QVERIFY(!errorVisible());
     }
-    void closingWindowDoesNotReturnToIntro() {
+    void closingWindowDoesNotReturnToIntro()
+    {
         request();
         supplyPassword();
         m_session->succeed();
@@ -225,7 +249,8 @@ private slots:
         QVERIFY(!mainWindow()->isVisible());
         QVERIFY(mainWindow()->testAttribute(Qt::WA_QuitOnClose));
     }
-    void closeWorkspaceStopsSessionAndAllowsReopening() {
+    void closeWorkspaceStopsSessionAndAllowsReopening()
+    {
         request();
         supplyPassword();
         m_session->succeed();

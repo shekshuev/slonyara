@@ -17,11 +17,14 @@ class ConnectionDialog final : public QDialog
 {
     Q_OBJECT
 public:
-    struct Dependencies {
+    struct Dependencies
+    {
         std::function<void(const QUuid &, QObject *, ConnectionSecrets::Callback)> readPassword;
-        std::function<void(const QUuid &, const QString &, QObject *, ConnectionSecrets::Callback)> writePassword;
+        std::function<void(const QUuid &, const QString &, QObject *, ConnectionSecrets::Callback)>
+                writePassword;
         std::function<void(const QUuid &, QObject *, ConnectionSecrets::Callback)> removePassword;
-        std::function<QFuture<ConnectionTestResult>(const ConnectionProfile &, const QString &)> testConnection;
+        std::function<QFuture<ConnectionTestResult>(const ConnectionProfile &, const QString &)>
+                testConnection;
     };
 
     explicit ConnectionDialog(QWidget *parent, const ConnectionProfile *profile = nullptr);
