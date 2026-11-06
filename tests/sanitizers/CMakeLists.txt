@@ -42,7 +42,7 @@ target_include_directories(CoreSanitizerTest PRIVATE ../../src)
 target_link_libraries(CoreSanitizerTest PRIVATE Threads::Threads)
 if(SLONYARA_CORE_SANITIZER STREQUAL "memory")
     target_link_libraries(CoreSanitizerTest PRIVATE
-        "-Wl,--start-group" c++ c++abi unwind "-Wl,--end-group")
+        "-Wl,--start-group" c++ c++abi "-Wl,--end-group")
 endif()
 target_compile_options(CoreSanitizerTest PRIVATE -Wall -Wextra -Wpedantic -Werror)
 enable_testing()
@@ -57,7 +57,7 @@ if(NOT SLONYARA_CORE_SANITIZER STREQUAL "none")
     if(SLONYARA_CORE_SANITIZER STREQUAL "memory")
         target_compile_definitions(SanitizerProbe PRIVATE SLONYARA_PROBE_MEMORY=1)
         target_link_libraries(SanitizerProbe PRIVATE
-            "-Wl,--start-group" c++ c++abi unwind "-Wl,--end-group")
+            "-Wl,--start-group" c++ c++abi "-Wl,--end-group")
     endif()
     add_test(NAME SanitizerRuntime
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/../../tools/verify-sanitizer.py

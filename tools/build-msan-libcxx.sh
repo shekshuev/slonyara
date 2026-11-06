@@ -12,12 +12,14 @@ if [[ ! -d "$source_dir" ]]; then
         --output "$work_dir/llvm.tar.xz"
     tar -xf "$work_dir/llvm.tar.xz" -C "$work_dir"
 fi
+# MSan reporting itself uses the system unwinder. Instrumenting LLVM libunwind
+# causes recursive MSan reports/stack overflow on LLVM 18 (llvm-project#79620).
 cmake -S "$source_dir/runtimes" -B "$work_dir/build" -G Ninja \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
     -DCMAKE_C_COMPILER=clang-18 \
     -DCMAKE_CXX_COMPILER=clang++-18 \
     -DCMAKE_INSTALL_PREFIX="$work_dir/prefix" \
-    -DLLVM_ENABLE_RUNTIMES='libcxx;libcxxabi;libunwind' \
+    -DLLVM_ENABLE_RUNTIMES='libcxx;libcxxabi' \
     -DLLVM_ENABLE_PER_TARGET_RUNTIME_DIR=OFF \
     -DLLVM_USE_SANITIZER=MemoryWithOrigins \
     -DLIBCXX_ENABLE_SHARED=OFF \
@@ -27,9 +29,6 @@ cmake -S "$source_dir/runtimes" -B "$work_dir/build" -G Ninja \
     -DLIBCXXABI_ENABLE_SHARED=OFF \
     -DLIBCXXABI_ENABLE_STATIC=ON \
     -DLIBCXXABI_ENABLE_TESTS=OFF \
-    -DLIBCXXABI_USE_LLVM_UNWINDER=ON \
-    -DLIBUNWIND_ENABLE_SHARED=OFF \
-    -DLIBUNWIND_ENABLE_STATIC=ON \
-    -DLIBUNWIND_ENABLE_TESTS=OFF
+    -DLIBCXXABI_USE_LLVM_UNWINDER=OFF
 cmake --build "$work_dir/build" --parallel 2
 cmake --install "$work_dir/build"
