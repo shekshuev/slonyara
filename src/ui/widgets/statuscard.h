@@ -11,8 +11,7 @@ class StatusCard final : public QFrame
     Q_OBJECT
 public:
     explicit StatusCard(QWidget *parent = nullptr);
-    void setStatus(const QString &message, Theme::ColorRole role,
-                   const QString &details = {});
+    void setStatus(const QString &message, Theme::ColorRole role, const QString &details = {});
     void clear();
 
 private:

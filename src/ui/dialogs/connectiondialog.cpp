@@ -3,6 +3,7 @@
 #include <QCheckBox>
 #include <QTimer>
 #include <QEvent>
+#include <QPointer>
 #include <QFormLayout>
 #include <QFutureWatcher>
 #include <QtConcurrent/QtConcurrentRun>
@@ -15,21 +16,36 @@
 #include <QPushButton>
 #include <QStyleHints>
 #include <QVBoxLayout>
+#include <utility>
 #include "../../core/connections/connectiontester.h"
 #include "../../core/connections/connectionsecrets.h"
 #include "../../platform/windoweffects_p.h"
 #include "../../utils/theme.h"
 #if defined(Q_OS_WIN)
-#include <qt_windows.h>
-#include <dwmapi.h>
+#  include <qt_windows.h>
+#  include <dwmapi.h>
 #endif
 
-ConnectionDialog::ConnectionDialog(QWidget *parent, const ConnectionProfile *profile) : QDialog(parent)
+ConnectionDialog::ConnectionDialog(QWidget *parent, const ConnectionProfile *profile)
+    : ConnectionDialog(parent, profile,
+              Dependencies{ ConnectionSecrets::read, ConnectionSecrets::write,
+                      ConnectionSecrets::remove,
+                      [](const ConnectionProfile &profile, const QString &password) {
+                          return QtConcurrent::run([profile, password] {
+                              return ConnectionTester::test(profile, password);
+                          });
+                      } })
+{
+}
+
+ConnectionDialog::ConnectionDialog(
+        QWidget *parent, const ConnectionProfile *profile, Dependencies dependencies)
+    : QDialog(parent), m_dependencies(std::move(dependencies))
 {
     setWindowTitle(profile ? tr("Edit Connection") : tr("New Connection"));
 #if defined(Q_OS_WIN)
     setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::WindowSystemMenuHint
-                   | Qt::WindowCloseButtonHint | Qt::MSWindowsFixedSizeDialogHint);
+            | Qt::WindowCloseButtonHint | Qt::MSWindowsFixedSizeDialogHint);
 #else
     setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
 #endif
@@ -37,13 +53,13 @@ ConnectionDialog::ConnectionDialog(QWidget *parent, const ConnectionProfile *pro
     setFixedSize(parent->width() - 48, parent->height() - 48);
 #if defined(Q_OS_WIN)
     const auto handle = reinterpret_cast<HWND>(winId());
-    const MARGINS margins{1, 1, 1, 1};
+    const MARGINS margins{ 1, 1, 1, 1 };
     DwmExtendFrameIntoClientArea(handle, &margins);
     const int roundedCorners = 2; // DWMWCP_ROUND
-    DwmSetWindowAttribute(handle, static_cast<DWMWINDOWATTRIBUTE>(33),
-                         &roundedCorners, sizeof(roundedCorners));
+    DwmSetWindowAttribute(
+            handle, static_cast<DWMWINDOWATTRIBUTE>(33), &roundedCorners, sizeof(roundedCorners));
     SetWindowPos(handle, nullptr, 0, 0, 0, 0,
-                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
 #endif
 #if !defined(Q_OS_WIN)
     WindowEffects::prepare(this);
@@ -68,6 +84,10 @@ ConnectionDialog::ConnectionDialog(QWidget *parent, const ConnectionProfile *pro
     m_user = new QLineEdit(QStringLiteral("postgres"), this);
     m_password = new QLineEdit(this);
     m_name->setObjectName(QStringLiteral("connectionName"));
+    m_host->setObjectName(QStringLiteral("connectionHost"));
+    m_port->setObjectName(QStringLiteral("connectionPort"));
+    m_database->setObjectName(QStringLiteral("connectionDatabase"));
+    m_user->setObjectName(QStringLiteral("connectionUser"));
     m_password->setObjectName(QStringLiteral("connectionPassword"));
     m_password->setEchoMode(QLineEdit::Password);
     connect(m_password, &QLineEdit::textEdited, this, [this] { m_passwordEdited = true; });
@@ -79,11 +99,9 @@ ConnectionDialog::ConnectionDialog(QWidget *parent, const ConnectionProfile *pro
         m_database->setText(profile->database);
         m_user->setText(profile->user);
     }
-    const QList<QPair<QString, QLineEdit *>> fields = {
-        {tr("Name"), m_name}, {tr("Host"), m_host}, {tr("Port"), m_port},
-        {tr("Database"), m_database}, {tr("User"), m_user},
-        {tr("Password"), m_password}
-    };
+    const QList<QPair<QString, QLineEdit *>> fields = { { tr("Name"), m_name },
+        { tr("Host"), m_host }, { tr("Port"), m_port }, { tr("Database"), m_database },
+        { tr("User"), m_user }, { tr("Password"), m_password } };
     for (const auto &field : fields) {
         Theme::applyFor(field.second);
         field.second->setClearButtonEnabled(true);
@@ -141,9 +159,9 @@ void ConnectionDialog::anchorToParent()
 #else
     const QSize dialogSize = size();
 #endif
-    const QPoint target = parentWidget()->mapToGlobal(
-        QPoint((parentWidget()->width() - dialogSize.width()) / 2,
-               (parentWidget()->height() - dialogSize.height()) / 2));
+    const QPoint target =
+            parentWidget()->mapToGlobal(QPoint((parentWidget()->width() - dialogSize.width()) / 2,
+                    (parentWidget()->height() - dialogSize.height()) / 2));
     if (pos() != target)
         move(target);
 }
@@ -151,14 +169,18 @@ void ConnectionDialog::anchorToParent()
 bool ConnectionDialog::eventFilter(QObject *watched, QEvent *event)
 {
     if (watched == parentWidget()
-        && (event->type() == QEvent::Move || event->type() == QEvent::Resize))
+            && (event->type() == QEvent::Move || event->type() == QEvent::Resize))
         anchorToParent();
     return QDialog::eventFilter(watched, event);
 }
 
 bool ConnectionDialog::event(QEvent *event)
 {
+    const QPointer<ConnectionDialog> guard(this);
     const bool handled = QDialog::event(event);
+    // DeferredDelete (or a signal handler) may destroy the window in the base handler.
+    if (!guard)
+        return handled;
     if (event->type() == QEvent::Show)
         anchorToParent();
     if (!m_effectsReady)
@@ -194,13 +216,13 @@ void ConnectionDialog::paintEvent(QPaintEvent *event)
     QDialog::paintEvent(event);
 #if !defined(Q_OS_WIN)
     QColor background = palette().color(QPalette::Window);
-#if defined(Q_OS_MACOS)
+#  if defined(Q_OS_MACOS)
     if (m_backdropAvailable && isActiveWindow())
         background.setAlpha(140);
-#elif defined(Q_OS_WIN)
+#  elif defined(Q_OS_WIN)
     if (m_backdropAvailable)
         background.setAlpha(0);
-#endif
+#  endif
     QPainter painter(this);
     painter.setCompositionMode(QPainter::CompositionMode_Source);
     painter.fillRect(rect(), background);
@@ -224,10 +246,10 @@ bool ConnectionDialog::nativeEvent(const QByteArray &type, void *message, qintpt
         return true;
     }
     const bool handled = QDialog::nativeEvent(type, message, result);
-    if (m_effectsReady && (msg->message == WM_SETTINGCHANGE
-                          || msg->message == WM_THEMECHANGED
-                          || msg->message == WM_DWMCOMPOSITIONCHANGED
-                          || msg->message == WM_DWMCOLORIZATIONCOLORCHANGED)) {
+    if (m_effectsReady
+            && (msg->message == WM_SETTINGCHANGE || msg->message == WM_THEMECHANGED
+                    || msg->message == WM_DWMCOMPOSITIONCHANGED
+                    || msg->message == WM_DWMCOLORIZATIONCOLORCHANGED)) {
         m_backdropAvailable = WindowEffects::refresh(this);
         update();
     }
@@ -237,7 +259,7 @@ bool ConnectionDialog::nativeEvent(const QByteArray &type, void *message, qintpt
 
 bool ConnectionDialog::validate()
 {
-    for (auto *field : {m_name, m_host, m_database, m_user}) {
+    for (auto *field : { m_name, m_host, m_database, m_user }) {
         if (field->text().trimmed().isEmpty()) {
             field->setFocus();
             return false;
@@ -290,47 +312,49 @@ void ConnectionDialog::submit()
             m_secretUnavailable = true;
             setBusy(false);
             m_statusCard->setStatus(tr("Could not save password."), Theme::ColorRole::Error,
-                result.error + QStringLiteral("\n\n")
-                + tr("Uncheck Save password to save the connection without it."));
+                    result.error + QStringLiteral("\n\n")
+                            + tr("Uncheck Save password to save the connection without it."));
             return;
         }
         m_secretChanged = result.success;
         emit connectionSubmitted(profile);
     };
     if (profile.savePassword)
-        ConnectionSecrets::write(m_connectionId, m_password->text(), this, finished);
+        m_dependencies.writePassword(m_connectionId, m_password->text(), this, finished);
     else
-        ConnectionSecrets::remove(m_connectionId, this, finished);
+        m_dependencies.removePassword(m_connectionId, this, finished);
 }
 
 void ConnectionDialog::loadPassword()
 {
     setBusy(true);
     m_statusCard->setStatus(tr("Loading password…"), Theme::ColorRole::Info);
-    ConnectionSecrets::read(m_connectionId, this, [this](const ConnectionSecrets::Result &result) {
-        setBusy(false);
-        m_secretUnavailable = !result.success;
-        m_secretReadFailed = !result.success;
-        if (!result.success) {
-            m_statusCard->setStatus(tr("Could not load password."), Theme::ColorRole::Error,
-                result.error + QStringLiteral("\n\n")
-                + tr("Uncheck Save password to save the connection without it."));
-            return;
-        }
-        m_hadPassword = result.found;
-        m_loadedPassword = result.password;
-        if (!m_passwordEdited)
-            m_password->setText(result.password);
-        if (!m_passwordEdited)
-            m_savePassword->setChecked(result.found);
-        m_statusCard->clear();
-    });
+    m_dependencies.readPassword(
+            m_connectionId, this, [this](const ConnectionSecrets::Result &result) {
+                setBusy(false);
+                m_secretUnavailable = !result.success;
+                m_secretReadFailed = !result.success;
+                if (!result.success) {
+                    m_statusCard->setStatus(tr("Could not load password."), Theme::ColorRole::Error,
+                            result.error + QStringLiteral("\n\n")
+                                    + tr("Uncheck Save password to save the connection without "
+                                         "it."));
+                    return;
+                }
+                m_hadPassword = result.found;
+                m_loadedPassword = result.password;
+                if (!m_passwordEdited)
+                    m_password->setText(result.password);
+                if (!m_passwordEdited)
+                    m_savePassword->setChecked(result.found);
+                m_statusCard->clear();
+            });
 }
 
 void ConnectionDialog::setBusy(bool busy)
 {
     m_busy = busy;
-    for (auto *field : {m_name, m_host, m_port, m_database, m_user, m_password})
+    for (auto *field : { m_name, m_host, m_port, m_database, m_user, m_password })
         field->setEnabled(!busy);
     m_savePassword->setEnabled(!busy);
     m_buttons->setEnabled(!busy);
@@ -355,8 +379,8 @@ void ConnectionDialog::completeSave(bool success)
             m_secretChanged = false;
             m_statusCard->setStatus(tr("Could not save connection."), Theme::ColorRole::Error);
         } else {
-            m_statusCard->setStatus(tr("Could not restore password."), Theme::ColorRole::Error,
-                                    result.error);
+            m_statusCard->setStatus(
+                    tr("Could not restore password."), Theme::ColorRole::Error, result.error);
         }
     };
     if (!m_secretChanged) {
@@ -364,9 +388,9 @@ void ConnectionDialog::completeSave(bool success)
         unchanged.success = true;
         finished(unchanged);
     } else if (m_hadPassword) {
-        ConnectionSecrets::write(m_connectionId, m_loadedPassword, this, finished);
+        m_dependencies.writePassword(m_connectionId, m_loadedPassword, this, finished);
     } else {
-        ConnectionSecrets::remove(m_connectionId, this, finished);
+        m_dependencies.removePassword(m_connectionId, this, finished);
     }
 }
 
@@ -385,21 +409,22 @@ void ConnectionDialog::testConnection()
     m_testButton->setText(tr("Testing…"));
 
     auto *watcher = new QFutureWatcher<ConnectionTestResult>(this);
-    connect(watcher, &QFutureWatcher<ConnectionTestResult>::finished, this, [this, watcher, revision] {
-        const auto result = watcher->result();
-        watcher->deleteLater();
-        m_testing = false;
-        m_buttons->button(QDialogButtonBox::Save)->setEnabled(!m_busy);
-        m_testButton->setEnabled(!m_busy);
-        m_testButton->setText(tr("Test Connection"));
-        if (revision != m_formRevision)
-            return;
-        if (result.success)
-            m_statusCard->setStatus(tr("Connection successful."), Theme::ColorRole::Success);
-        else
-            m_statusCard->setStatus(tr("Could not connect."), Theme::ColorRole::Error, result.error);
-    });
-    watcher->setFuture(QtConcurrent::run([profile, connectionPassword] {
-        return ConnectionTester::test(profile, connectionPassword);
-    }));
+    connect(watcher, &QFutureWatcher<ConnectionTestResult>::finished, this,
+            [this, watcher, revision] {
+                const auto result = watcher->result();
+                watcher->deleteLater();
+                m_testing = false;
+                m_buttons->button(QDialogButtonBox::Save)->setEnabled(!m_busy);
+                m_testButton->setEnabled(!m_busy);
+                m_testButton->setText(tr("Test Connection"));
+                if (revision != m_formRevision)
+                    return;
+                if (result.success)
+                    m_statusCard->setStatus(
+                            tr("Connection successful."), Theme::ColorRole::Success);
+                else
+                    m_statusCard->setStatus(
+                            tr("Could not connect."), Theme::ColorRole::Error, result.error);
+            });
+    watcher->setFuture(m_dependencies.testConnection(profile, connectionPassword));
 }

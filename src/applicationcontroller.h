@@ -3,6 +3,8 @@
 #include <QObject>
 #include <QElapsedTimer>
 #include <memory>
+#include <functional>
+#include "core/connections/connectionsecrets.h"
 
 class IntroWindow;
 class MainWindow;
@@ -15,7 +17,16 @@ class ApplicationController final : public QObject
     Q_OBJECT
 
 public:
+    struct Dependencies
+    {
+        std::function<void(const QUuid &, QObject *, ConnectionSecrets::Callback)> readPassword;
+        std::function<std::unique_ptr<ConnectionSession>(
+                const ConnectionProfile &, const QString &)>
+                createSession;
+    };
+
     explicit ApplicationController(QObject *parent = nullptr);
+    explicit ApplicationController(Dependencies dependencies, QObject *parent = nullptr);
     ~ApplicationController() override;
     void start();
 
@@ -27,6 +38,7 @@ private:
     void requestPassword(const ConnectionProfile &profile);
     void completeConnection(quint64 attempt, bool success, const QString &error = {});
 
+    Dependencies m_dependencies;
     std::unique_ptr<IntroWindow> m_introWindow;
     std::unique_ptr<MainWindow> m_mainWindow;
     std::unique_ptr<ConnectionSession> m_session;

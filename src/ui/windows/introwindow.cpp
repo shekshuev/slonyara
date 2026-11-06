@@ -39,13 +39,12 @@ constexpr int RightPanelSpacing = 12;
 constexpr int ConnectionSpacing = 2;
 } // namespace
 
-IntroWindow::IntroWindow(QWidget *parent)
-    : AppWindow(parent)
+IntroWindow::IntroWindow(QWidget *parent) : AppWindow(parent)
 {
     setFixedSize(WindowWidth, WindowHeight);
     setWindowFlags((windowFlags() | Qt::CustomizeWindowHint | Qt::WindowTitleHint
-                    | Qt::WindowSystemMenuHint | Qt::WindowCloseButtonHint)
-                   & ~Qt::WindowMinimizeButtonHint & ~Qt::WindowMaximizeButtonHint);
+                           | Qt::WindowSystemMenuHint | Qt::WindowCloseButtonHint)
+            & ~Qt::WindowMinimizeButtonHint & ~Qt::WindowMaximizeButtonHint);
 
     buildLayout();
 }
@@ -61,7 +60,7 @@ void IntroWindow::paintEvent(QPaintEvent *event)
     QPainter painter(this);
     painter.setCompositionMode(QPainter::CompositionMode_SourceAtop);
     painter.fillRect(QRect(0, 0, panelRight + panelSpacing / 2, height()),
-                     Theme::color(Theme::ColorRole::SidebarTint, this));
+            Theme::color(Theme::ColorRole::SidebarTint, this));
 }
 
 void IntroWindow::buildLayout()
@@ -74,8 +73,8 @@ void IntroWindow::buildLayout()
 #if defined(Q_OS_MACOS)
     central->setAttribute(Qt::WA_ContentsMarginsRespectsSafeArea, false);
 #endif
-    layout->setContentsMargins(WindowContentMargin, WindowTopMargin,
-                               WindowContentMargin, WindowContentMargin);
+    layout->setContentsMargins(
+            WindowContentMargin, WindowTopMargin, WindowContentMargin, WindowContentMargin);
 
     auto *leftPanel = new QWidget(this);
     m_leftPanel = leftPanel;
@@ -115,8 +114,8 @@ void IntroWindow::buildLayout()
 
     auto *rightPanel = new QWidget(this);
     auto *rightPanelLayout = new QVBoxLayout(rightPanel);
-    rightPanelLayout->setContentsMargins(RightPanelLeftMargin, RightPanelTopMargin,
-                                         RightPanelMargin, RightPanelMargin);
+    rightPanelLayout->setContentsMargins(
+            RightPanelLeftMargin, RightPanelTopMargin, RightPanelMargin, RightPanelMargin);
     rightPanelLayout->setSpacing(RightPanelSpacing);
 
     auto *searchInput = new QLineEdit(rightPanel);
@@ -142,15 +141,15 @@ void IntroWindow::buildLayout()
 #endif
     connectionsView->setMouseTracking(true);
     connectionsView->setModel(filterModel);
-    connect(connectionsView->selectionModel(), &QItemSelectionModel::selectionChanged,
-            editBtn, [this, connectionsView, editBtn, connectBtn] {
-        const bool hasSelection = !m_connecting && connectionsView->selectionModel()->hasSelection();
-        editBtn->setEnabled(hasSelection);
-        connectBtn->setEnabled(hasSelection);
-    });
+    connect(connectionsView->selectionModel(), &QItemSelectionModel::selectionChanged, editBtn,
+            [this, connectionsView, editBtn, connectBtn] {
+                const bool hasSelection =
+                        !m_connecting && connectionsView->selectionModel()->hasSelection();
+                editBtn->setEnabled(hasSelection);
+                connectBtn->setEnabled(hasSelection);
+            });
     connectionsView->installEventFilter(this);
-    connect(connectionsView, &QListView::doubleClicked,
-            this, &IntroWindow::openSelectedConnection);
+    connect(connectionsView, &QListView::doubleClicked, this, &IntroWindow::openSelectedConnection);
     connectionsView->setItemDelegate(new ConnectionDelegate(connectionsView));
     connectionsView->setUniformItemSizes(true);
     connectionsView->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -179,15 +178,14 @@ void IntroWindow::buildLayout()
     connectionsArea->addWidget(emptyState);
 
     const auto updateEmptyState = [this, connectionsArea, connectionsView, emptyState] {
-        connectionsArea->setCurrentWidget(m_connectionsModel->rowCount() == 0
-                                             ? emptyState : connectionsView);
+        connectionsArea->setCurrentWidget(
+                m_connectionsModel->rowCount() == 0 ? emptyState : connectionsView);
     };
-    connect(m_connectionsModel, &QAbstractItemModel::rowsInserted,
-            connectionsArea, updateEmptyState);
-    connect(m_connectionsModel, &QAbstractItemModel::rowsRemoved,
-            connectionsArea, updateEmptyState);
-    connect(m_connectionsModel, &QAbstractItemModel::modelReset,
-            connectionsArea, updateEmptyState);
+    connect(m_connectionsModel, &QAbstractItemModel::rowsInserted, connectionsArea,
+            updateEmptyState);
+    connect(m_connectionsModel, &QAbstractItemModel::rowsRemoved, connectionsArea,
+            updateEmptyState);
+    connect(m_connectionsModel, &QAbstractItemModel::modelReset, connectionsArea, updateEmptyState);
     updateEmptyState();
 
     rightPanelLayout->addWidget(searchInput);
@@ -264,8 +262,9 @@ void IntroWindow::reloadConnections()
     m_connectionsModel->clear();
     for (const auto &connection : m_connectionStore.connections()) {
         const QString address = QStringLiteral("%1:%2/%3")
-                                    .arg(connection.host).arg(connection.port)
-                                    .arg(connection.database);
+                                        .arg(connection.host)
+                                        .arg(connection.port)
+                                        .arg(connection.database);
         auto *item = new QStandardItem(connection.name);
         item->setData(connection.id, ConnectionIdRole);
         item->setData(address, ConnectionDelegate::AddressRole);
@@ -282,15 +281,16 @@ void IntroWindow::createConnection()
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     connect(dialog, &ConnectionDialog::connectionSubmitted, this,
             [this, dialog](const ConnectionProfile &profile) {
-        m_connectionStore.addConnection(profile);
-        if (!m_connectionStore.save()) {
-            m_connectionStore.removeConnectionAt(m_connectionStore.connections().size() - 1);
-            dialog->completeSave(false);
-            return;
-        }
-        reloadConnections();
-        dialog->completeSave(true);
-    });
+                m_connectionStore.addConnection(profile);
+                if (!m_connectionStore.save()) {
+                    m_connectionStore.removeConnectionAt(
+                            m_connectionStore.connections().size() - 1);
+                    dialog->completeSave(false);
+                    return;
+                }
+                reloadConnections();
+                dialog->completeSave(true);
+            });
     dialog->open();
 }
 
@@ -303,31 +303,32 @@ void IntroWindow::editConnection()
     for (const auto &connection : m_connectionStore.connections()) {
         if (connection.id != id)
             continue;
-        const auto original = connection;
+        // The asynchronous callback below captures the original by value for rollback.
+        const auto &original = connection;
         auto *dialog = new ConnectionDialog(this, &original);
         dialog->setAttribute(Qt::WA_DeleteOnClose);
         connect(dialog, &ConnectionDialog::connectionSubmitted, this,
                 [this, dialog, original](const ConnectionProfile &profile) {
-            if (!m_connectionStore.updateConnection(profile)) {
-                dialog->completeSave(false);
-                return;
-            }
-            if (!m_connectionStore.save()) {
-                m_connectionStore.updateConnection(original);
-                dialog->completeSave(false);
-                return;
-            }
-            reloadConnections();
-            const auto *model = m_connectionsView->model();
-            for (int row = 0; row < model->rowCount(); ++row) {
-                const auto index = model->index(row, 0);
-                if (index.data(ConnectionIdRole).toUuid() == profile.id) {
-                    m_connectionsView->setCurrentIndex(index);
-                    break;
-                }
-            }
-            dialog->completeSave(true);
-        });
+                    if (!m_connectionStore.updateConnection(profile)) {
+                        dialog->completeSave(false);
+                        return;
+                    }
+                    if (!m_connectionStore.save()) {
+                        m_connectionStore.updateConnection(original);
+                        dialog->completeSave(false);
+                        return;
+                    }
+                    reloadConnections();
+                    const auto *model = m_connectionsView->model();
+                    for (int row = 0; row < model->rowCount(); ++row) {
+                        const auto index = model->index(row, 0);
+                        if (index.data(ConnectionIdRole).toUuid() == profile.id) {
+                            m_connectionsView->setCurrentIndex(index);
+                            break;
+                        }
+                    }
+                    dialog->completeSave(true);
+                });
         dialog->open();
         return;
     }

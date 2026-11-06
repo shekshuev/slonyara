@@ -10,21 +10,23 @@
 #include <QPushButton>
 #include <QVBoxLayout>
 #include <QEvent>
+#include <QPointer>
 #include <QGuiApplication>
 #include <QPainter>
 #include <QStyleHints>
 #if defined(Q_OS_WIN)
-#include <qt_windows.h>
-#include <dwmapi.h>
+#  include <qt_windows.h>
+#  include <dwmapi.h>
 #endif
 
-StatusDetailsDialog::StatusDetailsDialog(const QString &summary, const QString &details,
-                                       QWidget *parent) : QDialog(parent)
+StatusDetailsDialog::StatusDetailsDialog(
+        const QString &summary, const QString &details, QWidget *parent)
+    : QDialog(parent)
 {
     setWindowTitle(tr("Connection details"));
 #if defined(Q_OS_WIN)
     setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::WindowSystemMenuHint
-                   | Qt::WindowCloseButtonHint | Qt::MSWindowsFixedSizeDialogHint);
+            | Qt::WindowCloseButtonHint | Qt::MSWindowsFixedSizeDialogHint);
 #else
     setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
 #endif
@@ -32,13 +34,13 @@ StatusDetailsDialog::StatusDetailsDialog(const QString &summary, const QString &
     resize(520, 320);
 #if defined(Q_OS_WIN)
     const auto handle = reinterpret_cast<HWND>(winId());
-    const MARGINS margins{1, 1, 1, 1};
+    const MARGINS margins{ 1, 1, 1, 1 };
     DwmExtendFrameIntoClientArea(handle, &margins);
     const int roundedCorners = 2; // DWMWCP_ROUND
-    DwmSetWindowAttribute(handle, static_cast<DWMWINDOWATTRIBUTE>(33),
-                         &roundedCorners, sizeof(roundedCorners));
+    DwmSetWindowAttribute(
+            handle, static_cast<DWMWINDOWATTRIBUTE>(33), &roundedCorners, sizeof(roundedCorners));
     SetWindowPos(handle, nullptr, 0, 0, 0, 0,
-                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
 #endif
 #if !defined(Q_OS_WIN)
     WindowEffects::prepare(this);
@@ -63,9 +65,8 @@ StatusDetailsDialog::StatusDetailsDialog(const QString &summary, const QString &
     auto *close = buttons->addButton(tr("Close"), QDialogButtonBox::RejectRole);
     copy->setAutoDefault(false);
     close->setAutoDefault(false);
-    connect(copy, &QPushButton::clicked, this, [details] {
-        QApplication::clipboard()->setText(details);
-    });
+    connect(copy, &QPushButton::clicked, this,
+            [details] { QApplication::clipboard()->setText(details); });
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
     layout->addWidget(buttons);
     auto *hints = QGuiApplication::styleHints();
@@ -87,9 +88,9 @@ void StatusDetailsDialog::anchorToParent()
 #else
     const QSize dialogSize = size();
 #endif
-    const QPoint target = parentWidget()->mapToGlobal(
-        QPoint((parentWidget()->width() - dialogSize.width()) / 2,
-               (parentWidget()->height() - dialogSize.height()) / 2));
+    const QPoint target =
+            parentWidget()->mapToGlobal(QPoint((parentWidget()->width() - dialogSize.width()) / 2,
+                    (parentWidget()->height() - dialogSize.height()) / 2));
     if (pos() != target)
         move(target);
 }
@@ -97,14 +98,18 @@ void StatusDetailsDialog::anchorToParent()
 bool StatusDetailsDialog::eventFilter(QObject *watched, QEvent *event)
 {
     if (watched == parentWidget()
-        && (event->type() == QEvent::Move || event->type() == QEvent::Resize))
+            && (event->type() == QEvent::Move || event->type() == QEvent::Resize))
         anchorToParent();
     return QDialog::eventFilter(watched, event);
 }
 
 bool StatusDetailsDialog::event(QEvent *event)
 {
+    const QPointer<StatusDetailsDialog> guard(this);
     const bool handled = QDialog::event(event);
+    // DeferredDelete (or a signal handler) may destroy the window in the base handler.
+    if (!guard)
+        return handled;
     if (event->type() == QEvent::Show)
         anchorToParent();
     if (!m_effectsReady)
@@ -140,13 +145,13 @@ void StatusDetailsDialog::paintEvent(QPaintEvent *event)
     QDialog::paintEvent(event);
 #if !defined(Q_OS_WIN)
     QColor background = palette().color(QPalette::Window);
-#if defined(Q_OS_MACOS)
+#  if defined(Q_OS_MACOS)
     if (m_backdropAvailable && isActiveWindow())
         background.setAlpha(140);
-#elif defined(Q_OS_WIN)
+#  elif defined(Q_OS_WIN)
     if (m_backdropAvailable)
         background.setAlpha(0);
-#endif
+#  endif
     QPainter painter(this);
     painter.setCompositionMode(QPainter::CompositionMode_Source);
     painter.fillRect(rect(), background);
@@ -170,14 +175,13 @@ bool StatusDetailsDialog::nativeEvent(const QByteArray &type, void *message, qin
         return true;
     }
     const bool handled = QDialog::nativeEvent(type, message, result);
-    if (m_effectsReady && (msg->message == WM_SETTINGCHANGE
-                          || msg->message == WM_THEMECHANGED
-                          || msg->message == WM_DWMCOMPOSITIONCHANGED
-                          || msg->message == WM_DWMCOLORIZATIONCOLORCHANGED)) {
+    if (m_effectsReady
+            && (msg->message == WM_SETTINGCHANGE || msg->message == WM_THEMECHANGED
+                    || msg->message == WM_DWMCOMPOSITIONCHANGED
+                    || msg->message == WM_DWMCOLORIZATIONCOLORCHANGED)) {
         m_backdropAvailable = WindowEffects::refresh(this);
         update();
     }
     return handled;
 }
 #endif
-

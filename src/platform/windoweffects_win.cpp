@@ -23,15 +23,17 @@ bool transparencyAllowed()
     HIGHCONTRASTW contrast{};
     contrast.cbSize = sizeof(contrast);
     if (SystemParametersInfoW(SPI_GETHIGHCONTRAST, sizeof(contrast), &contrast, 0)
-        && (contrast.dwFlags & HCF_HIGHCONTRASTON)) {
+            && (contrast.dwFlags & HCF_HIGHCONTRASTON)) {
         return false;
     }
     const QSettings settings(
-        QStringLiteral("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize"),
-        QSettings::NativeFormat);
+            QStringLiteral(
+                    "HKEY_CURRENT_"
+                    "USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize"),
+            QSettings::NativeFormat);
     return settings.value(QStringLiteral("EnableTransparency"), 1).toBool();
 }
-}
+} // namespace
 
 namespace WindowEffects {
 void prepare(QWidget *window)
@@ -52,7 +54,7 @@ bool refresh(QWidget *window)
         return false;
 
     constexpr DWORD hiddenCaptionParts = WTNCA_NODRAWCAPTION | WTNCA_NODRAWICON;
-    WTA_OPTIONS captionOptions{hiddenCaptionParts, hiddenCaptionParts};
+    WTA_OPTIONS captionOptions{ hiddenCaptionParts, hiddenCaptionParts };
     SetWindowThemeAttribute(handle, WTA_NONCLIENT, &captionOptions, sizeof(captionOptions));
 
     const BOOL dark = QGuiApplication::styleHints()->colorScheme() == Qt::ColorScheme::Dark;
@@ -63,31 +65,33 @@ bool refresh(QWidget *window)
     bool enabled = false;
     if (build >= 22621) {
         const int backdrop = allowed ? micaBackdrop : noBackdrop;
-        enabled = SUCCEEDED(DwmSetWindowAttribute(handle, backdropAttribute,
-                                                  &backdrop, sizeof(backdrop))) && allowed;
+        enabled = SUCCEEDED(DwmSetWindowAttribute(
+                          handle, backdropAttribute, &backdrop, sizeof(backdrop)))
+                && allowed;
     }
 
     const QColor background = window->palette().color(QPalette::Window);
-    const COLORREF captionColor = enabled ? defaultDwmColor
-        : RGB(background.red(), background.green(), background.blue());
+    const COLORREF captionColor = enabled
+            ? defaultDwmColor
+            : RGB(background.red(), background.green(), background.blue());
     DwmSetWindowAttribute(handle, captionColorAttribute, &captionColor, sizeof(captionColor));
 
     const int margin = enabled ? -1 : 0;
-    const MARGINS margins{margin, margin, margin, margin};
+    const MARGINS margins{ margin, margin, margin, margin };
     if (FAILED(DwmExtendFrameIntoClientArea(handle, &margins)))
         return false;
     return enabled;
 }
-}
+} // namespace WindowEffects
 
 bool AppWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr *result)
 {
     const bool handled = QMainWindow::nativeEvent(eventType, message, result);
     const auto *msg = static_cast<MSG *>(message);
-    if (m_effectsReady && (msg->message == WM_SETTINGCHANGE
-                          || msg->message == WM_THEMECHANGED
-                          || msg->message == WM_DWMCOLORIZATIONCOLORCHANGED
-                          || msg->message == WM_DWMCOMPOSITIONCHANGED)) {
+    if (m_effectsReady
+            && (msg->message == WM_SETTINGCHANGE || msg->message == WM_THEMECHANGED
+                    || msg->message == WM_DWMCOLORIZATIONCOLORCHANGED
+                    || msg->message == WM_DWMCOMPOSITIONCHANGED)) {
         m_backdropAvailable = WindowEffects::refresh(this);
         update();
     }

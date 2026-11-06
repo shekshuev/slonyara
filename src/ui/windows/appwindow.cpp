@@ -3,6 +3,7 @@
 #include "../../platform/windoweffects_p.h"
 
 #include <QEvent>
+#include <QPointer>
 #include <QGuiApplication>
 #include <QStyleHints>
 #include <QPainter>
@@ -22,7 +23,11 @@ AppWindow::AppWindow(QWidget *parent) : QMainWindow(parent)
 
 bool AppWindow::event(QEvent *event)
 {
+    const QPointer<AppWindow> guard(this);
     const bool handled = QMainWindow::event(event);
+    // DeferredDelete (or a signal handler) may destroy the window in the base handler.
+    if (!guard)
+        return handled;
     if (!m_effectsReady)
         return handled;
 

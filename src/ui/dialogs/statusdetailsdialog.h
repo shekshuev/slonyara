@@ -6,8 +6,8 @@ class StatusDetailsDialog final : public QDialog
 {
     Q_OBJECT
 public:
-    explicit StatusDetailsDialog(const QString &summary, const QString &details,
-                                 QWidget *parent = nullptr);
+    explicit StatusDetailsDialog(
+            const QString &summary, const QString &details, QWidget *parent = nullptr);
 
 protected:
     bool event(QEvent *event) override;

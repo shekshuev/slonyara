@@ -7,7 +7,8 @@
 class QObject;
 
 namespace ConnectionSecrets {
-struct Result {
+struct Result
+{
     bool success = false;
     bool found = false;
     QString password;
@@ -18,4 +19,4 @@ using Callback = std::function<void(const Result &)>;
 void read(const QUuid &id, QObject *context, Callback callback);
 void write(const QUuid &id, const QString &password, QObject *context, Callback callback);
 void remove(const QUuid &id, QObject *context, Callback callback);
-}
+} // namespace ConnectionSecrets

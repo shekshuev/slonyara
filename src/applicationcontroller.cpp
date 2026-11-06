@@ -2,20 +2,33 @@
 
 #include "ui/windows/introwindow.h"
 #include "ui/windows/mainwindow.h"
-#include "core/connections/connectionsession.h"
+#include "core/connections/postgressession.h"
 #include "core/connections/connectionsecrets.h"
+#include "utils/theme.h"
 #include <QInputDialog>
+#include <QDialogButtonBox>
 #include <QLineEdit>
 #include <QTimer>
 #include <algorithm>
 
 ApplicationController::ApplicationController(QObject *parent)
-    : QObject(parent), m_introWindow(std::make_unique<IntroWindow>())
+    : ApplicationController(Dependencies{ ConnectionSecrets::read,
+                                    [](const ConnectionProfile &profile, const QString &password) {
+                                        return std::make_unique<PostgresSession>(profile, password);
+                                    } },
+              parent)
 {
-    connect(m_introWindow.get(), &IntroWindow::connectionRequested,
-            this, &ApplicationController::openWorkspace);
-    connect(m_introWindow.get(), &IntroWindow::connectionCancelled,
-            this, &ApplicationController::cancelConnection);
+}
+
+ApplicationController::ApplicationController(Dependencies dependencies, QObject *parent)
+    : QObject(parent),
+      m_dependencies(std::move(dependencies)),
+      m_introWindow(std::make_unique<IntroWindow>())
+{
+    connect(m_introWindow.get(), &IntroWindow::connectionRequested, this,
+            &ApplicationController::openWorkspace);
+    connect(m_introWindow.get(), &IntroWindow::connectionCancelled, this,
+            &ApplicationController::cancelConnection);
 }
 
 ApplicationController::~ApplicationController()
@@ -42,7 +55,7 @@ void ApplicationController::openWorkspace(const ConnectionProfile &profile)
         requestPassword(profile);
         return;
     }
-    ConnectionSecrets::read(profile.id, this, [this, profile, attempt](const auto &result) {
+    m_dependencies.readPassword(profile.id, this, [this, profile, attempt](const auto &result) {
         if (attempt != m_attempt)
             return;
         if (!result.success) {
@@ -63,6 +76,9 @@ void ApplicationController::requestPassword(const ConnectionProfile &profile)
     dialog->setWindowTitle(tr("Connect to %1").arg(profile.name));
     dialog->setLabelText(tr("Password for %1:").arg(profile.user));
     dialog->setTextEchoMode(QLineEdit::Password);
+#if defined(Q_OS_MACOS)
+    Theme::applyFor(dialog->findChild<QLineEdit *>());
+#endif
     const auto attempt = m_attempt;
     connect(dialog, &QDialog::accepted, this, [this, profile, dialog, attempt] {
         m_passwordDialog = nullptr;
@@ -76,24 +92,30 @@ void ApplicationController::requestPassword(const ConnectionProfile &profile)
             cancelConnection();
     });
     dialog->open();
+#if defined(Q_OS_MACOS)
+    if (auto *buttons = dialog->findChild<QDialogButtonBox *>())
+        buttons->setCenterButtons(true);
+#endif
 }
 
-void ApplicationController::connectProfile(const ConnectionProfile &profile, const QString &password)
+void ApplicationController::connectProfile(
+        const ConnectionProfile &profile, const QString &password)
 {
     m_connectingTimer.start();
     const auto attempt = m_attempt;
-    m_session = std::make_unique<ConnectionSession>(profile, password);
+    m_session = m_dependencies.createSession(profile, password);
     connect(m_session.get(), &ConnectionSession::opened, this, [this, attempt] {
         if (attempt != m_attempt)
             return;
         completeConnection(attempt, true);
     });
-    connect(m_session.get(), &ConnectionSession::failed, this, [this, attempt](const QString &error) {
-        if (attempt != m_attempt)
-            return;
-        m_connectionError = error;
-    });
-    connect(m_session.get(), &QThread::finished, this, [this, attempt] {
+    connect(m_session.get(), &ConnectionSession::failed, this,
+            [this, attempt](const QString &error) {
+                if (attempt != m_attempt)
+                    return;
+                m_connectionError = error;
+            });
+    connect(m_session.get(), &ConnectionSession::finished, this, [this, attempt] {
         m_session.reset();
         if (attempt == m_attempt && !m_connectionError.isEmpty()) {
             completeConnection(attempt, false, m_connectionError);
@@ -122,8 +144,8 @@ void ApplicationController::completeConnection(quint64 attempt, bool success, co
         if (!m_session)
             return;
         m_mainWindow = std::make_unique<MainWindow>(m_session.get());
-        connect(m_mainWindow.get(), &MainWindow::closeWorkspaceRequested,
-                this, &ApplicationController::closeWorkspace, Qt::QueuedConnection);
+        connect(m_mainWindow.get(), &MainWindow::closeWorkspaceRequested, this,
+                &ApplicationController::closeWorkspace, Qt::QueuedConnection);
         m_mainWindow->show();
         m_introWindow->hide();
     });

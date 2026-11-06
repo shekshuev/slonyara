@@ -49,8 +49,7 @@ protected:
 
     void mouseMoveEvent(QMouseEvent *event) override
     {
-        if (m_dragPending && (event->buttons() & Qt::LeftButton)
-            && window()->windowHandle()) {
+        if (m_dragPending && (event->buttons() & Qt::LeftButton) && window()->windowHandle()) {
             m_dragPending = false;
             if (window()->windowHandle()->startSystemMove()) {
                 event->accept();
@@ -98,27 +97,38 @@ public:
         for (NSNotificationName name in @[
                  NSWindowWillEnterFullScreenNotification, NSWindowDidEnterFullScreenNotification,
                  NSWindowWillExitFullScreenNotification, NSWindowDidExitFullScreenNotification,
-                 NSWindowDidResizeNotification, NSWindowDidEndSheetNotification]) {
-            id observer = [center addObserverForName:name object:nil queue:nil
-                                         usingBlock:^(NSNotification *notification) {
-                if (!m_view || notification.object != m_view.window)
-                    return;
-                if ([notification.name isEqualToString:NSWindowWillEnterFullScreenNotification]
-                    || [notification.name isEqualToString:NSWindowWillExitFullScreenNotification]) {
-                    m_transition = true;
-                } else if ([notification.name isEqualToString:NSWindowDidEnterFullScreenNotification]
-                           || [notification.name isEqualToString:NSWindowDidExitFullScreenNotification]) {
-                    m_transition = false;
-                }
-                apply();
-                if (!m_refreshPending) {
-                    m_refreshPending = true;
-                    QTimer::singleShot(0, this, [this] {
-                        m_refreshPending = false;
-                        apply();
-                    });
-                }
-            }];
+                 NSWindowDidResizeNotification, NSWindowDidEndSheetNotification
+             ]) {
+            id observer = [center
+                    addObserverForName:name
+                                object:nil
+                                 queue:nil
+                            usingBlock:^(NSNotification *notification) {
+                                if (!m_view || notification.object != m_view.window)
+                                    return;
+                                if ([notification.name
+                                            isEqualToString:NSWindowWillEnterFullScreenNotification]
+                                        || [notification.name
+                                                isEqualToString:
+                                                        NSWindowWillExitFullScreenNotification]) {
+                                    m_transition = true;
+                                } else if ([notification.name
+                                                   isEqualToString:
+                                                           NSWindowDidEnterFullScreenNotification]
+                                        || [notification.name
+                                                isEqualToString:
+                                                        NSWindowDidExitFullScreenNotification]) {
+                                    m_transition = false;
+                                }
+                                apply();
+                                if (!m_refreshPending) {
+                                    m_refreshPending = true;
+                                    QTimer::singleShot(0, this, [this] {
+                                        m_refreshPending = false;
+                                        apply();
+                                    });
+                                }
+                            }];
             [m_observers addObject:observer];
         }
     }
@@ -150,9 +160,9 @@ public:
         nativeWindow.titleVisibility = NSWindowTitleHidden;
         const auto flags = m_window->windowFlags();
         [[nativeWindow standardWindowButton:NSWindowMiniaturizeButton]
-            setHidden:!flags.testFlag(Qt::WindowMinimizeButtonHint)];
+                setHidden:!flags.testFlag(Qt::WindowMinimizeButtonHint)];
         [[nativeWindow standardWindowButton:NSWindowZoomButton]
-            setHidden:!flags.testFlag(Qt::WindowMaximizeButtonHint)];
+                setHidden:!flags.testFlag(Qt::WindowMaximizeButtonHint)];
         view.wantsLayer = YES;
         view.layer.opaque = NO;
         view.layer.backgroundColor = NSColor.clearColor.CGColor;
@@ -177,9 +187,10 @@ private:
             return;
         const CGFloat spacing = NSMinX(minimize.frame) - NSMinX(close.frame);
         const CGFloat y = view.isFlipped ? titleBarHeight / 2.0
-                                        : NSHeight(view.bounds) - titleBarHeight / 2.0;
+                                         : NSHeight(view.bounds) - titleBarHeight / 2.0;
         const NSPoint center = [minimize.superview
-            convertPoint:NSMakePoint(titleBarMargin + buttonAreaWidth / 2.0, y) fromView:view];
+                convertPoint:NSMakePoint(titleBarMargin + buttonAreaWidth / 2.0, y)
+                    fromView:view];
         const CGFloat x = center.x - NSWidth(minimize.frame) / 2;
         const CGFloat bottom = center.y - NSHeight(minimize.frame) / 2;
         [close setFrameOrigin:NSMakePoint(x - spacing, bottom)];
@@ -194,15 +205,15 @@ private:
     bool m_transition = false;
     bool m_refreshPending = false;
 };
-}
+} // namespace
 
 namespace WindowEffects {
 void prepare(QWidget *window)
 {
     window->setAttribute(Qt::WA_TranslucentBackground);
     window->setAttribute(Qt::WA_ContentsMarginsRespectsSafeArea, false);
-    window->setWindowFlags(window->windowFlags() | Qt::ExpandedClientAreaHint
-                          | Qt::NoTitleBarBackgroundHint);
+    window->setWindowFlags(
+            window->windowFlags() | Qt::ExpandedClientAreaHint | Qt::NoTitleBarBackgroundHint);
 }
 
 bool setup(QWidget *window)
@@ -213,13 +224,15 @@ bool setup(QWidget *window)
         mainWindow->setMenuWidget(new TitleBar(mainWindow));
     auto *effects = new MacWindowEffects(window);
     window->winId();
+    // QObject parent window owns effects; the analyzer cannot model Qt ownership.
+    // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
     return effects->apply();
 }
 
 bool refresh(QWidget *window)
 {
     auto *effects = static_cast<MacWindowEffects *>(window->findChild<QObject *>(
-        QString::fromLatin1(effectsObjectName), Qt::FindDirectChildrenOnly));
+            QString::fromLatin1(effectsObjectName), Qt::FindDirectChildrenOnly));
     return effects && effects->apply();
 }
-}
+} // namespace WindowEffects
