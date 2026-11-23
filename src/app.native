@@ -1,6 +1,0 @@
-<column gap="12" padding="16">
-  <row gap="8" cross="center">
-    <button size="sm" variant="ghost">Test btn</button>
-  </row>
-  <status-bar>Test status bar text</status-bar>
-</column>

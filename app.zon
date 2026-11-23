@@ -11,17 +11,20 @@
     .shell = .{
         .windows = .{
             .{
-                .label = "main",
+                .label = "intro",
                 .title = "Slonyara",
-                .width = 480,
-                .height = 320,
+                .width = 640,
+                .height = 480,
+                .resizable = false,
+                .restore_state = false,
+                .allows_fullscreen = false,
                 .views = .{
                     .{
-                        .label = "main-canvas",
+                        .label = "intro-canvas",
                         .kind = "gpu_surface",
                         .fill = true,
-                        .role = "Slonyara canvas",
-                        .accessibility_label = "Slonyara",
+                        .role = "Connection picker",
+                        .accessibility_label = "Connections",
                         .gpu_backend = "metal",
                         .gpu_pixel_format = "bgra8_unorm",
                         .gpu_present_mode = "timer",

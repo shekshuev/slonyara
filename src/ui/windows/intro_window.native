@@ -1,0 +1,33 @@
+<column>
+  <spacer height="34" window-drag="true" />
+
+  <row grow="1">
+    <column width="200" padding="12" gap="8">
+      <column gap="8" cross="center">
+        <image image="{logo_image}" width="64" height="64" label="Slonyara logo" />
+        <text text-alignment="center">SLONYARA</text>
+        <text foreground="text_muted" text-alignment="center">Version: {version}</text>
+      </column>
+
+      <spacer grow="1" />
+
+      <button size="sm" variant="primary" disabled="true">Connect</button>
+      <button size="sm" variant="secondary" disabled="true">Edit</button>
+      <spacer height="12" />
+      <button size="sm" icon="plus">New Connection</button>
+    </column>
+
+    <separator />
+
+    <column grow="1" padding="12" gap="12">
+      <search-field size="sm" placeholder="Search connections…" />
+
+      <stack grow="1">
+        <list grow="1" label="Saved connections" />
+        <column grow="1" main="center" cross="center" padding="12">
+          <text foreground="text_muted" text-alignment="center" wrap="true">No connections yet</text>
+        </column>
+      </stack>
+    </column>
+  </row>
+</column>

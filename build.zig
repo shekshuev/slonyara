@@ -1,10 +1,15 @@
 const std = @import("std");
+
 const native_sdk = @import("native_sdk");
 
 pub fn build(b: *std.Build) void {
     const app = native_sdk.addAppArtifacts(b, b.dependency("native_sdk", .{}), .{ .name = "slonyara" });
+    for ([_]*std.Build.Module{ app.exe.root_module, app.tests.root_module }) |module| {
+        module.addAnonymousImport("app_icon", .{ .root_source_file = b.path("assets/icon.png") });
+        const runner = module.import_table.get("runner").?;
+        module.addImport("app_manifest_zon", runner.import_table.get("app_manifest_zon").?);
+    }
     if (app.exe.root_module.resolved_target.?.result.os.tag == .macos) {
-        // Match the SDK host's Apple headers and Zig 0.16 ObjC sanitizer workaround.
         const flags: []const []const u8 = if (b.sysroot) |sysroot|
             &.{ "-fobjc-arc", "-fno-sanitize=builtin", "-ObjC", "-isysroot", sysroot, b.fmt("-I{s}/usr/include", .{sysroot}) }
         else

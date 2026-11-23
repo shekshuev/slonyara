@@ -1,66 +1,99 @@
-name: CI
+name: Slonyara CI
 
 on:
   pull_request:
   push:
-    branches:
-      - main
+    branches: [main]
 
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
-  # build.zig.zon expects the Native SDK framework checkout at this
-  # path, relative to the repository root. Adjust both together if
-  # your framework checkout lives elsewhere.
-  NATIVE_SDK_PATH: "../../.asdf/installs/nodejs/22.22.0/lib/node_modules/@native-sdk/cli"
+  NATIVE_SDK_VERSION: "0.9.3"
 
 jobs:
-  test:
-    name: Logic Tests
+  check:
+    name: Build, Lint and Test
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: vercel-labs/setup-zig@v1
-        with:
-          version: 0.16.0
-      - name: Fetch native-sdk
-        run: |
-          if [ ! -f "$NATIVE_SDK_PATH/build.zig" ]; then
-            git clone --depth 1 https://github.com/vercel-labs/native.git "$NATIVE_SDK_PATH"
-          fi
-      - run: zig build test -Dplatform=null
+    timeout-minutes: 20
 
-  smoke:
-    name: Automation Smoke (Linux)
-    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: vercel-labs/setup-zig@v1
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Zig
+        uses: mlugg/setup-zig@v2
         with:
           version: 0.16.0
-      - name: Install GTK and Xvfb
-        # No WebKitGTK dev package: this app declares no web use, so its
-        # Linux host compiles without the embedded web layer and never
-        # links WebKitGTK (install it alongside a .frontend block or
-        # the "webview" capability if the app grows web content).
-        run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev xvfb
-      - name: Fetch native-sdk
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.22.0"
+
+      - name: Install Native SDK
         run: |
-          if [ ! -f "$NATIVE_SDK_PATH/build.zig" ]; then
-            git clone --depth 1 https://github.com/vercel-labs/native.git "$NATIVE_SDK_PATH"
-          fi
-      - name: Build the Native SDK CLI
-        run: cd "$NATIVE_SDK_PATH" && zig build
-      - name: Build and drive the app headless
+          npm install --global "@native-sdk/cli@$NATIVE_SDK_VERSION"
+          export NATIVE_SDK_PATH="$(npm root --global)/@native-sdk/cli"
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from 'node:fs';
+          const file = 'build.zig.zon';
+          const source = readFileSync(file, 'utf8');
+          const dependency = /(\.native_sdk\s*=\s*\.\{\s*\.path\s*=\s*)"[^"]+"/;
+          if (!dependency.test(source)) throw new Error('Native SDK dependency not found');
+          writeFileSync(file, source.replace(dependency, (_, prefix) => prefix + JSON.stringify(process.env.NATIVE_SDK_PATH)));
+          NODE
+
+      - name: Checkout zsort 0.7.0
+        uses: actions/checkout@v4
+        with:
+          repository: mstdokumaci/zsort
+          ref: 11086049fd1272110297ee1af852775728bdb736
+          path: .ci-tools/zsort
+          persist-credentials: false
+
+      - name: Install zsort
         run: |
-          set -euo pipefail
-          cli="$NATIVE_SDK_PATH/zig-out/bin/native"
-          zig build -Dplatform=linux -Dweb-engine=system -Dautomation=true
-          rm -rf .zig-cache/native-sdk-automation
-          xvfb-run -a ./zig-out/bin/slonyara &
-          pid=$!
-          trap 'kill "$pid" >/dev/null 2>&1 || true' EXIT
-          "$cli" automate wait
-          "$cli" automate screenshot main-canvas
-          test -s .zig-cache/native-sdk-automation/screenshot-main-canvas.png
+          zig build --build-file .ci-tools/zsort/build.zig -Doptimize=ReleaseFast --prefix "$RUNNER_TEMP/zsort"
+          echo "$RUNNER_TEMP/zsort/bin" >> "$GITHUB_PATH"
+
+      - name: Install native UI dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev xvfb
+
+      - name: Run pre-commit checks
+        run: ./scripts/pre-commit
+
+      - name: Build UI with automation
+        run: zig build -Dautomation=true
+
+      - name: Check Intro in a virtual display
+        run: |
+          xvfb-run --auto-servernum bash -euo pipefail <<'SMOKE'
+          ./zig-out/bin/slonyara > /tmp/slonyara-ui-smoke.log 2>&1 &
+          app_pid=$!
+          trap 'kill "$app_pid" >/dev/null 2>&1 || true' EXIT
+          native automate wait
+          native automate assert 'dispatch_errors=0' 'intro-canvas' '640x480' 'gpu_status=ready' 'role=button name="New Connection"' 'name="No connections yet"'
+          native automate screenshot intro-canvas
+          test -s .zig-cache/native-sdk-automation/screenshot-intro-canvas.png
+          SMOKE
+
+      - name: Upload UI diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: intro-ui-diagnostics
+          path: |
+            .zig-cache/native-sdk-automation/screenshot-intro-canvas.png
+            .zig-cache/native-sdk-automation/snapshot.txt
+            /tmp/slonyara-ui-smoke.log
+          if-no-files-found: ignore
+          include-hidden-files: true

@@ -1,0 +1,29 @@
+#!/bin/sh
+
+set -eu
+
+cd "$(git rev-parse --show-toplevel)"
+
+for tool in zig zsort native; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+        echo "Missing required tool: $tool. See README.md for development setup." >&2
+        exit 1
+    fi
+done
+
+echo "Checking Zig formatting..."
+zig fmt --check build.zig build.zig.zon app.zon src
+
+echo "Checking import order..."
+zsort check build.zig src
+
+echo "Building Slonyara..."
+zig build
+
+echo "Running Native SDK tests..."
+zig build test --summary all
+
+echo "Checking Native markup and app manifest..."
+native check
+
+echo "All checks passed."

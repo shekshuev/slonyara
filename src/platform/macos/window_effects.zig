@@ -1,9 +1,9 @@
 const builtin = @import("builtin");
 
-extern "c" fn apply_vibrancy(label: [*]const u8, label_len: usize) void;
+extern "c" fn configure_window(label: [*]const u8, label_len: usize, intro: bool) void;
 
-pub fn applyVibrancy(canvas_label: []const u8) void {
+pub fn configureWindow(canvas_label: []const u8, intro: bool) void {
     if (comptime builtin.os.tag == .macos) {
-        apply_vibrancy(canvas_label.ptr, canvas_label.len);
+        configure_window(canvas_label.ptr, canvas_label.len, intro);
     }
 }
