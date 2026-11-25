@@ -32,24 +32,6 @@ jobs:
         with:
           version: 0.16.0
 
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22.22.0"
-
-      - name: Install Native SDK
-        run: |
-          npm install --global "@native-sdk/cli@$NATIVE_SDK_VERSION"
-          export NATIVE_SDK_PATH="$(npm root --global)/@native-sdk/cli"
-          node --input-type=module <<'NODE'
-          import { readFileSync, writeFileSync } from 'node:fs';
-          const file = 'build.zig.zon';
-          const source = readFileSync(file, 'utf8');
-          const dependency = /(\.native_sdk\s*=\s*\.\{\s*\.path\s*=\s*)"[^"]+"/;
-          if (!dependency.test(source)) throw new Error('Native SDK dependency not found');
-          writeFileSync(file, source.replace(dependency, (_, prefix) => prefix + JSON.stringify(process.env.NATIVE_SDK_PATH)));
-          NODE
-
       - name: Checkout zsort 0.7.0
         uses: actions/checkout@v4
         with:
@@ -74,26 +56,11 @@ jobs:
       - name: Build UI with automation
         run: zig build -Dautomation=true
 
-      - name: Check Intro in a virtual display
-        run: |
-          xvfb-run --auto-servernum bash -euo pipefail <<'SMOKE'
-          ./zig-out/bin/slonyara > /tmp/slonyara-ui-smoke.log 2>&1 &
-          app_pid=$!
-          trap 'kill "$app_pid" >/dev/null 2>&1 || true' EXIT
-          native automate wait
-          native automate assert 'dispatch_errors=0' 'intro-canvas' '640x480' 'gpu_status=ready' 'role=button name="New Connection"' 'name="No connections yet"'
-          native automate screenshot intro-canvas
-          test -s .zig-cache/native-sdk-automation/screenshot-intro-canvas.png
-          SMOKE
+      - name: Check Code Format
+        run: zig fmt --check scr
 
-      - name: Upload UI diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: intro-ui-diagnostics
-          path: |
-            .zig-cache/native-sdk-automation/screenshot-intro-canvas.png
-            .zig-cache/native-sdk-automation/snapshot.txt
-            /tmp/slonyara-ui-smoke.log
-          if-no-files-found: ignore
-          include-hidden-files: true
+      - name: Check Imports
+        run: zsort check scr
+
+      - name: Run Test
+        run: xvfb-run --auto-servernum zig build test --summary all
