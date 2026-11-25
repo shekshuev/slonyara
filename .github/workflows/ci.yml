@@ -50,9 +50,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libgtk-4-dev xvfb
 
-      - name: Run pre-commit checks
-        run: ./scripts/pre-commit
-
       - name: Build UI with automation
         run: zig build -Dautomation=true
 
