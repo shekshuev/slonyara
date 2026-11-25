@@ -3,6 +3,11 @@
     .fingerprint = 0xacd51f935a707070,
     .version = "0.0.1",
     .minimum_zig_version = "0.16.0",
-    .dependencies = .{ .native_sdk = .{ .path = "zig-pkg/native_sdk-0.1.0-hzDzQjQKYgMaorPGyRkuOmhb_2nSPn9BD8iC0Wq8ieaV", } },
+    .dependencies = .{
+        .native_sdk = .{
+            .url = "git+https://github.com/vercel-labs/native.git#4d47c2cfcd256e7835a31342058cb321d5c75217",
+            .hash = "native_sdk-0.1.0-hzDzQjQKYgMaorPGyRkuOmhb_2nSPn9BD8iC0Wq8ieaV",
+        },
+    },
     .paths = .{ "build.zig", "build.zig.zon", "src", "assets", "app.zon", "README.md" },
 }
