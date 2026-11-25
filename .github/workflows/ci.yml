@@ -54,10 +54,10 @@ jobs:
         run: zig build -Dautomation=true
 
       - name: Check Code Format
-        run: zig fmt --check scr
+        run: zig fmt --check src
 
       - name: Check Imports
-        run: zsort check scr
+        run: zsort check src
 
       - name: Run Test
         run: xvfb-run --auto-servernum zig build test --summary all
