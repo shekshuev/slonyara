@@ -1,5 +1,6 @@
 const std = @import("std");
 
+const core = @import("core");
 const native_sdk = @import("native_sdk");
 const runner = @import("runner");
 
@@ -30,5 +31,6 @@ pub fn main(init: std.process.Init) !void {
 }
 
 test {
+    _ = core;
     _ = windows;
 }

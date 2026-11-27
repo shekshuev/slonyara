@@ -3,7 +3,29 @@ const std = @import("std");
 const native_sdk = @import("native_sdk");
 
 pub fn build(b: *std.Build) void {
-    const app = native_sdk.addAppArtifacts(b, b.dependency("native_sdk", .{}), .{ .name = "slonyara" });
+    const app = native_sdk.addAppArtifacts(
+        b,
+        b.dependency("native_sdk", .{}),
+        .{ .name = "slonyara" },
+    );
+
+    const target = app.exe.root_module.resolved_target.?;
+    const optimize = app.exe.root_module.optimize.?;
+
+    const pg_module = b.dependency("pg", .{}).module("pg");
+
+    const core_mod = b.createModule(.{
+        .root_source_file = b.path("src/core/core.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "pg", .module = pg_module },
+        },
+    });
+
+    app.exe.root_module.addImport("core", core_mod);
+    app.tests.root_module.addImport("core", core_mod);
+
     for ([_]*std.Build.Module{ app.exe.root_module, app.tests.root_module }) |module| {
         module.addAnonymousImport("app_icon", .{ .root_source_file = b.path("assets/icon.png") });
         const runner = module.import_table.get("runner").?;
